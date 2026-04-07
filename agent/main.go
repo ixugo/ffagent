@@ -63,7 +63,7 @@ func main() {
 		bc.CacheRoot = filepath.Join(ud, "ffagent")
 	}
 	_ = os.MkdirAll(bc.CacheRoot, 0o755)
-	versionapi.DBVersion = "v0.0.1"
+	versionapi.DBVersion = "v0.0.2"
 	versionapi.DBRemark = "initial version"
 
 	{
