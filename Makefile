@@ -1,11 +1,32 @@
-.PHONY: help dev build/darwin-arm64 build/windows-amd64 build/linux-amd64 build/linux-arm64 build/all build/sidecar build/copy-ffmpeg build/frontend clean
+.PHONY: help dev build/darwin-arm64 build/windows-amd64 build/linux-amd64 build/linux-arm64 build/all build/sidecar build/copy-ffmpeg build/frontend build/sync-version clean
 
 AGENT_DIR := agent
 SIDECAR_DIR := resources/binaries
 VENDOR_FFMPEG := vendor/ffmpeg
 
+# ==================================================================================== #
+# 版本号：从 git tag 自动计算，与 agent/Makefile 保持一致
+# ==================================================================================== #
+
+RECENT_TAG := $(shell git describe --tags --abbrev=0 2>&1 | grep -v -e "fatal" -e "Try" || echo "v0.0.0")
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
+ifeq ($(RECENT_TAG),v0.0.0)
+	COMMITS := $(shell git rev-list --count HEAD)
+else
+	COMMITS := $(shell git log --first-parent --format='%ae' $(RECENT_TAG)..$(BRANCH) | wc -l)
+	COMMITS := $(shell echo $(COMMITS) | sed 's/ //g')
+endif
+
+GIT_VERSION_MAJOR := $(shell echo $(RECENT_TAG) | cut -d. -f1 | sed 's/v//')
+GIT_VERSION_MINOR := $(shell echo $(RECENT_TAG) | cut -d. -f2)
+GIT_VERSION_PATCH := $(shell echo $(RECENT_TAG) | cut -d. -f3)
+FINAL_PATCH := $(shell echo '$(GIT_VERSION_PATCH) $(COMMITS)' | awk '{print $$1 + $$2}')
+VERSION := $(GIT_VERSION_MAJOR).$(GIT_VERSION_MINOR).$(FINAL_PATCH)
+HASH_AND_DATE := $(shell git log -n1 --pretty=format:"%h-%cd" --date=format:%y%m%d | awk '{print $$1}')
+
 help: ## 显示帮助
-	@echo "FFAgent 构建命令:"
+	@echo "FFAgent 构建命令 (version: $(VERSION)):"
 	@echo ""
 	@echo "  make dev                  开发模式 (编译 agent + 启动 Electron dev)"
 	@echo "  make build/darwin-arm64   打包 macOS arm64 版本"
@@ -99,8 +120,14 @@ build/copy-ffmpeg/linux-arm64:
 # 前端
 # ==================================================================================== #
 
+## build/sync-version: 将 git tag 版本号同步写入 package.json 和 .env.production
+build/sync-version:
+	@echo '>>> 同步版本号 $(VERSION) ($(HASH_AND_DATE))...'
+	@sed -i "" 's/"version": *"[^"]*"/"version": "$(VERSION)"/' package.json
+	@echo '>>> OK'
+
 ## build/frontend: 构建前端 + Electron 主进程
-build/frontend:
+build/frontend: build/sync-version
 	@echo '>>> 构建前端...'
 	@npx vite build
 	@echo '>>> OK'
@@ -114,8 +141,9 @@ build/darwin-arm64: build/sidecar/darwin-arm64 build/copy-ffmpeg/darwin-arm64 bu
 	@echo '>>> 打包 Electron (macOS arm64)...'
 	@npx electron-builder --mac --arm64
 	@for f in release/*.dmg; do [ -f "$$f" ] && ./build/inject-signing-script.sh "$$f"; done
+	@git checkout package.json
 	@echo '============================================'
-	@echo '>>> macOS arm64 打包完成!'
+	@echo '>>> macOS arm64 打包完成! ($(VERSION))'
 	@echo '>>> 产物位于: release/'
 	@echo '============================================'
 
@@ -128,8 +156,9 @@ build/windows-amd64: build/sidecar/windows-amd64 build/copy-ffmpeg/windows-amd64
 	@echo '>>> 打包 Electron (Windows amd64)...'
 	@echo '>>> 注意: macOS 上打 Windows 包需要 Wine，electron-builder 会自动下载'
 	@npx electron-builder --win --x64
+	@git checkout package.json
 	@echo '============================================'
-	@echo '>>> Windows amd64 打包完成!'
+	@echo '>>> Windows amd64 打包完成! ($(VERSION))'
 	@echo '>>> 产物位于: release/'
 	@echo '============================================'
 
@@ -141,8 +170,9 @@ build/windows-amd64: build/sidecar/windows-amd64 build/copy-ffmpeg/windows-amd64
 build/linux-amd64: build/sidecar/linux-amd64 build/copy-ffmpeg/linux-amd64 build/frontend
 	@echo '>>> 打包 Electron (Linux amd64)...'
 	@npx electron-builder --linux --x64
+	@git checkout package.json
 	@echo '============================================'
-	@echo '>>> Linux amd64 打包完成!'
+	@echo '>>> Linux amd64 打包完成! ($(VERSION))'
 	@echo '>>> 产物位于: release/'
 	@echo '============================================'
 
@@ -154,8 +184,9 @@ build/linux-amd64: build/sidecar/linux-amd64 build/copy-ffmpeg/linux-amd64 build
 build/linux-arm64: build/sidecar/linux-arm64 build/copy-ffmpeg/linux-arm64 build/frontend
 	@echo '>>> 打包 Electron (Linux arm64)...'
 	@npx electron-builder --linux --arm64
+	@git checkout package.json
 	@echo '============================================'
-	@echo '>>> Linux arm64 打包完成!'
+	@echo '>>> Linux arm64 打包完成! ($(VERSION))'
 	@echo '>>> 产物位于: release/'
 	@echo '============================================'
 
@@ -195,8 +226,9 @@ build/all: build/sidecar build/frontend
 	@npx electron-builder --linux --x64
 	@echo '>>> 打包 Linux arm64...'
 	@npx electron-builder --linux --arm64
+	@git checkout package.json
 	@echo '============================================'
-	@echo '>>> 全平台打包完成!'
+	@echo '>>> 全平台打包完成! ($(VERSION))'
 	@echo '>>> 产物位于: release/'
 	@echo '============================================'
 
