@@ -2,3 +2,7 @@ darwin-arm64/ffmpeg
 darwin-arm64/ffprobe
 windows-amd64/ffmpeg.exe
 windows-amd64/ffprobe.exe
+linux-amd64/ffmpeg
+linux-amd64/ffprobe
+linux-arm64/ffmpeg
+linux-arm64/ffprobe

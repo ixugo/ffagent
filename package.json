@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",

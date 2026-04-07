@@ -43,6 +43,12 @@ function getAgentBinaryPath(): string {
   } else if (platform === "darwin" && arch === "x64") {
     const p = path.join(binDir, "agent-x86_64-apple-darwin");
     if (fs.existsSync(p)) return p;
+  } else if (platform === "linux" && arch === "x64") {
+    const p = path.join(binDir, "agent-x86_64-unknown-linux-gnu");
+    if (fs.existsSync(p)) return p;
+  } else if (platform === "linux" && arch === "arm64") {
+    const p = path.join(binDir, "agent-aarch64-unknown-linux-gnu");
+    if (fs.existsSync(p)) return p;
   }
 
   return path.join(binDir, "agent");

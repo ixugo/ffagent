@@ -178,7 +178,7 @@ func (c *Client) RunAgent(ctx context.Context, req AgentRequest, executor *ffmpe
 		response, err := c.collectStreamResponse(ctx, messages, writer)
 		if err != nil {
 			slog.Error("ai stream failed", "round", round+1, "err", err)
-			writer.SendMessage("抱歉，AI 服务暂时出了点问题，请稍后再试。")
+			writer.SendMessage("请在设置中配置 AI 服务")
 			writer.SendDone()
 			return err
 		}
@@ -419,7 +419,7 @@ func fixTimestamp(ts string) string {
 		}
 		m = m*10 + int(c-'0')
 	}
-	totalSec := float64(h*3600+m*60+sec)
+	totalSec := float64(h*3600 + m*60 + sec)
 	if dotIdx := strings.Index(parts[2], "."); dotIdx >= 0 {
 		fracStr := parts[2][dotIdx:]
 		frac := 0.0

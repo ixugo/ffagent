@@ -46,6 +46,9 @@ func bundledBinaryCandidates(binDir, base string) []string {
 		c = append(c, filepath.Join(binDir, base+"-x86_64-apple-darwin"))
 		return c
 	}
+	if runtime.GOARCH == "arm64" {
+		c = append(c, filepath.Join(binDir, base+"-aarch64-unknown-linux-gnu"))
+	}
 	c = append(c, filepath.Join(binDir, base+"-x86_64-unknown-linux-gnu"))
 	return c
 }

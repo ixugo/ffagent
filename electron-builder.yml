@@ -44,3 +44,18 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+linux:
+  icon: resources/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+  category: AudioVideo
+  extraResources:
+    - from: resources/binaries/
+      to: binaries/
+      filter:
+        - "agent-*-unknown-linux-gnu"
+        - "ffmpeg-*-unknown-linux-gnu"
+        - "ffprobe-*-unknown-linux-gnu"

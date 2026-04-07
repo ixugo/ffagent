@@ -255,9 +255,39 @@ build/sidecar/windows-amd64:
 		-o=$(SIDECAR_DIR)/agent-x86_64-pc-windows-msvc.exe ./main.go
 	@echo '>>> OK'
 
+## build/sidecar/linux-amd64: 编译 Linux amd64 sidecar
+.PHONY: build/sidecar/linux-amd64
+build/sidecar/linux-amd64:
+	@echo 'Building sidecar for linux/amd64...'
+	@mkdir -p $(SIDECAR_DIR)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+		-trimpath \
+		-ldflags="-s -w \
+			-X main.buildVersion=$(VERSION) \
+			-X main.gitBranch=$(BRANCH_NAME) \
+			-X main.gitHash=$(HASH_AND_DATE) \
+			-X main.release=true" \
+		-o=$(SIDECAR_DIR)/agent-x86_64-unknown-linux-gnu ./main.go
+	@echo '>>> OK'
+
+## build/sidecar/linux-arm64: 编译 Linux arm64 sidecar
+.PHONY: build/sidecar/linux-arm64
+build/sidecar/linux-arm64:
+	@echo 'Building sidecar for linux/arm64...'
+	@mkdir -p $(SIDECAR_DIR)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+		-trimpath \
+		-ldflags="-s -w \
+			-X main.buildVersion=$(VERSION) \
+			-X main.gitBranch=$(BRANCH_NAME) \
+			-X main.gitHash=$(HASH_AND_DATE) \
+			-X main.release=true" \
+		-o=$(SIDECAR_DIR)/agent-aarch64-unknown-linux-gnu ./main.go
+	@echo '>>> OK'
+
 ## build/sidecar: 编译所有平台的 sidecar
 .PHONY: build/sidecar
-build/sidecar: build/sidecar/darwin-arm64 build/sidecar/windows-amd64
+build/sidecar: build/sidecar/darwin-arm64 build/sidecar/windows-amd64 build/sidecar/linux-amd64 build/sidecar/linux-arm64
 
 ## build/sidecar/dev: 编译当前平台的 sidecar（开发用）
 .PHONY: build/sidecar/dev

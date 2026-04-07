@@ -13,18 +13,21 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  build-macos:
+  # ─────────────────────────────────────────────────────────────
+  # macOS arm64
+  # ─────────────────────────────────────────────────────────────
+  build-macos-arm64:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
@@ -38,7 +41,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
           mkdir -p ../resources/binaries
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build \
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
             -trimpath \
             -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
@@ -63,9 +66,7 @@ jobs:
         run: |
           echo "=== binaries ==="
           ls -lh resources/binaries/
-          echo "=== agent ==="
           file resources/binaries/agent-aarch64-apple-darwin
-          echo "=== ffmpeg ==="
           file resources/binaries/ffmpeg-aarch64-apple-darwin
           file resources/binaries/ffprobe-aarch64-apple-darwin
           resources/binaries/ffmpeg-aarch64-apple-darwin -version 2>&1 | head -1
@@ -78,25 +79,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v5
+      - name: Inject signing script into DMG
+        run: |
+          for f in release/*.dmg; do
+            [ -f "$f" ] && ./build/inject-signing-script.sh "$f"
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: FFAgent-macos-arm64
           path: release/*.dmg
           if-no-files-found: error
 
-  build-windows:
+  # ─────────────────────────────────────────────────────────────
+  # Windows amd64
+  # ─────────────────────────────────────────────────────────────
+  build-windows-amd64:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
@@ -111,7 +121,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
           mkdir -p ../resources/binaries
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
             -trimpath \
             -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
@@ -134,9 +144,7 @@ jobs:
         run: |
           echo "=== binaries ==="
           ls -lh resources/binaries/
-          echo "=== agent ==="
           file resources/binaries/agent-x86_64-pc-windows-msvc.exe
-          echo "=== ffmpeg ==="
           file resources/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
           file resources/binaries/ffprobe-x86_64-pc-windows-msvc.exe
 
@@ -148,21 +156,163 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v5
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: FFAgent-windows-amd64
           path: release/*.exe
           if-no-files-found: error
 
-  publish-release:
-    needs: [build-macos, build-windows]
+  # ─────────────────────────────────────────────────────────────
+  # Linux amd64
+  # ─────────────────────────────────────────────────────────────
+  build-linux-amd64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: agent/go.sum
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Go Agent (Linux amd64)
+        working-directory: agent
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
+          mkdir -p ../resources/binaries
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -trimpath \
+            -ldflags="-s -w \
+              -X main.buildVersion=${VERSION} \
+              -X main.gitHash=${HASH} \
+              -X main.release=true" \
+            -o=../resources/binaries/agent-x86_64-unknown-linux-gnu ./main.go
+
+      - name: Download FFmpeg (Linux amd64 static)
+        run: |
+          mkdir -p resources/binaries
+          curl -L -o /tmp/ffmpeg.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+          tar -xf /tmp/ffmpeg.tar.xz -C /tmp
+          FF_DIR=$(ls -d /tmp/ffmpeg-master-*-linux64-gpl 2>/dev/null | head -1)
+          cp "${FF_DIR}/bin/ffmpeg" resources/binaries/ffmpeg-x86_64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffprobe" resources/binaries/ffprobe-x86_64-unknown-linux-gnu
+          chmod +x resources/binaries/ffmpeg-x86_64-unknown-linux-gnu resources/binaries/ffprobe-x86_64-unknown-linux-gnu
+
+      - name: Verify sidecar binaries
+        run: |
+          echo "=== binaries ==="
+          ls -lh resources/binaries/
+          file resources/binaries/agent-x86_64-unknown-linux-gnu
+          file resources/binaries/ffmpeg-x86_64-unknown-linux-gnu
+          file resources/binaries/ffprobe-x86_64-unknown-linux-gnu
+          resources/binaries/ffmpeg-x86_64-unknown-linux-gnu -version 2>&1 | head -1
+
+      - name: Build frontend + Electron
+        run: npx vite build
+
+      - name: Package Electron app (Linux amd64)
+        run: npx electron-builder --linux --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FFAgent-linux-amd64
+          path: release/*.AppImage
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────
+  # Linux arm64
+  # ─────────────────────────────────────────────────────────────
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: agent/go.sum
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Go Agent (Linux arm64)
+        working-directory: agent
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
+          mkdir -p ../resources/binaries
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+            -trimpath \
+            -ldflags="-s -w \
+              -X main.buildVersion=${VERSION} \
+              -X main.gitHash=${HASH} \
+              -X main.release=true" \
+            -o=../resources/binaries/agent-aarch64-unknown-linux-gnu ./main.go
+
+      - name: Download FFmpeg (Linux arm64 static)
+        run: |
+          mkdir -p resources/binaries
+          curl -L -o /tmp/ffmpeg.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
+          tar -xf /tmp/ffmpeg.tar.xz -C /tmp
+          FF_DIR=$(ls -d /tmp/ffmpeg-master-*-linuxarm64-gpl 2>/dev/null | head -1)
+          cp "${FF_DIR}/bin/ffmpeg" resources/binaries/ffmpeg-aarch64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffprobe" resources/binaries/ffprobe-aarch64-unknown-linux-gnu
+          chmod +x resources/binaries/ffmpeg-aarch64-unknown-linux-gnu resources/binaries/ffprobe-aarch64-unknown-linux-gnu
+
+      - name: Verify sidecar binaries
+        run: |
+          echo "=== binaries ==="
+          ls -lh resources/binaries/
+          file resources/binaries/agent-aarch64-unknown-linux-gnu
+          file resources/binaries/ffmpeg-aarch64-unknown-linux-gnu
+          file resources/binaries/ffprobe-aarch64-unknown-linux-gnu
+
+      - name: Build frontend + Electron
+        run: npx vite build
+
+      - name: Package Electron app (Linux arm64)
+        run: npx electron-builder --linux --arm64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FFAgent-linux-arm64
+          path: release/*.AppImage
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────
+  # 发布 GitHub Release
+  # ─────────────────────────────────────────────────────────────
+  publish-release:
+    needs: [build-macos-arm64, build-windows-amd64, build-linux-amd64, build-linux-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
@@ -177,3 +327,5 @@ jobs:
           files: |
             artifacts/FFAgent-macos-arm64/*.dmg
             artifacts/FFAgent-windows-amd64/*.exe
+            artifacts/FFAgent-linux-amd64/*.AppImage
+            artifacts/FFAgent-linux-arm64/*.AppImage

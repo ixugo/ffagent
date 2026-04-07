@@ -1,4 +1,4 @@
-.PHONY: help dev build/darwin-arm64 build/windows-amd64 build/all build/sidecar build/copy-ffmpeg build/frontend clean
+.PHONY: help dev build/darwin-arm64 build/windows-amd64 build/linux-amd64 build/linux-arm64 build/all build/sidecar build/copy-ffmpeg build/frontend clean
 
 AGENT_DIR := agent
 SIDECAR_DIR := resources/binaries
@@ -10,6 +10,8 @@ help: ## 显示帮助
 	@echo "  make dev                  开发模式 (编译 agent + 启动 Electron dev)"
 	@echo "  make build/darwin-arm64   打包 macOS arm64 版本"
 	@echo "  make build/windows-amd64  打包 Windows amd64 版本 (macOS 上需 Wine)"
+	@echo "  make build/linux-amd64    打包 Linux amd64 版本"
+	@echo "  make build/linux-arm64    打包 Linux arm64 版本"
 	@echo "  make build/all            打包所有平台"
 	@echo "  make clean                清理构建产物"
 	@echo ""
@@ -36,6 +38,14 @@ build/sidecar/darwin-arm64:
 ## build/sidecar/windows-amd64: 编译 Windows amd64 Go Agent
 build/sidecar/windows-amd64:
 	@cd $(AGENT_DIR) && make build/sidecar/windows-amd64
+
+## build/sidecar/linux-amd64: 编译 Linux amd64 Go Agent
+build/sidecar/linux-amd64:
+	@cd $(AGENT_DIR) && make build/sidecar/linux-amd64
+
+## build/sidecar/linux-arm64: 编译 Linux arm64 Go Agent
+build/sidecar/linux-arm64:
+	@cd $(AGENT_DIR) && make build/sidecar/linux-arm64
 
 ## build/sidecar: 编译所有平台 Go Agent
 build/sidecar:
@@ -64,6 +74,26 @@ build/copy-ffmpeg/windows-amd64:
 	@cp $(VENDOR_FFMPEG)/windows-amd64/ffprobe.exe $(SIDECAR_DIR)/ffprobe-x86_64-pc-windows-msvc.exe
 	@echo '>>> OK'
 
+## build/copy-ffmpeg/linux-amd64: 复制 Linux amd64 ffmpeg
+build/copy-ffmpeg/linux-amd64:
+	@echo '>>> 复制 ffmpeg 二进制 (linux-amd64)...'
+	@mkdir -p $(SIDECAR_DIR)
+	@test -f $(VENDOR_FFMPEG)/linux-amd64/ffmpeg || (echo "错误: $(VENDOR_FFMPEG)/linux-amd64/ffmpeg 不存在，请先下载" && exit 1)
+	@cp $(VENDOR_FFMPEG)/linux-amd64/ffmpeg $(SIDECAR_DIR)/ffmpeg-x86_64-unknown-linux-gnu
+	@cp $(VENDOR_FFMPEG)/linux-amd64/ffprobe $(SIDECAR_DIR)/ffprobe-x86_64-unknown-linux-gnu
+	@chmod +x $(SIDECAR_DIR)/ffmpeg-x86_64-unknown-linux-gnu $(SIDECAR_DIR)/ffprobe-x86_64-unknown-linux-gnu
+	@echo '>>> OK'
+
+## build/copy-ffmpeg/linux-arm64: 复制 Linux arm64 ffmpeg
+build/copy-ffmpeg/linux-arm64:
+	@echo '>>> 复制 ffmpeg 二进制 (linux-arm64)...'
+	@mkdir -p $(SIDECAR_DIR)
+	@test -f $(VENDOR_FFMPEG)/linux-arm64/ffmpeg || (echo "错误: $(VENDOR_FFMPEG)/linux-arm64/ffmpeg 不存在，请先下载" && exit 1)
+	@cp $(VENDOR_FFMPEG)/linux-arm64/ffmpeg $(SIDECAR_DIR)/ffmpeg-aarch64-unknown-linux-gnu
+	@cp $(VENDOR_FFMPEG)/linux-arm64/ffprobe $(SIDECAR_DIR)/ffprobe-aarch64-unknown-linux-gnu
+	@chmod +x $(SIDECAR_DIR)/ffmpeg-aarch64-unknown-linux-gnu $(SIDECAR_DIR)/ffprobe-aarch64-unknown-linux-gnu
+	@echo '>>> OK'
+
 # ==================================================================================== #
 # 前端
 # ==================================================================================== #
@@ -82,6 +112,7 @@ build/frontend:
 build/darwin-arm64: build/sidecar/darwin-arm64 build/copy-ffmpeg/darwin-arm64 build/frontend
 	@echo '>>> 打包 Electron (macOS arm64)...'
 	@npx electron-builder --mac --arm64
+	@for f in release/*.dmg; do [ -f "$$f" ] && ./build/inject-signing-script.sh "$$f"; done
 	@echo '============================================'
 	@echo '>>> macOS arm64 打包完成!'
 	@echo '>>> 产物位于: release/'
@@ -102,12 +133,38 @@ build/windows-amd64: build/sidecar/windows-amd64 build/copy-ffmpeg/windows-amd64
 	@echo '============================================'
 
 # ==================================================================================== #
+# 打包 Linux amd64
+# ==================================================================================== #
+
+## build/linux-amd64: 一键打包 Linux amd64
+build/linux-amd64: build/sidecar/linux-amd64 build/copy-ffmpeg/linux-amd64 build/frontend
+	@echo '>>> 打包 Electron (Linux amd64)...'
+	@npx electron-builder --linux --x64
+	@echo '============================================'
+	@echo '>>> Linux amd64 打包完成!'
+	@echo '>>> 产物位于: release/'
+	@echo '============================================'
+
+# ==================================================================================== #
+# 打包 Linux arm64
+# ==================================================================================== #
+
+## build/linux-arm64: 一键打包 Linux arm64
+build/linux-arm64: build/sidecar/linux-arm64 build/copy-ffmpeg/linux-arm64 build/frontend
+	@echo '>>> 打包 Electron (Linux arm64)...'
+	@npx electron-builder --linux --arm64
+	@echo '============================================'
+	@echo '>>> Linux arm64 打包完成!'
+	@echo '>>> 产物位于: release/'
+	@echo '============================================'
+
+# ==================================================================================== #
 # 全平台打包 (macOS 上可同时构建 macOS + Windows)
 # ==================================================================================== #
 
-## build/all: 打包所有平台 (macOS 上通过 Wine 交叉编译 Windows)
+## build/all: 打包所有平台
 build/all: build/sidecar build/frontend
-	@echo '>>> 复制 FFmpeg (darwin-arm64)...'
+	@echo '>>> 复制 FFmpeg 二进制...'
 	@mkdir -p $(SIDECAR_DIR)
 	@if [ -f $(VENDOR_FFMPEG)/darwin-arm64/ffmpeg ]; then \
 		cp $(VENDOR_FFMPEG)/darwin-arm64/ffmpeg $(SIDECAR_DIR)/ffmpeg-aarch64-apple-darwin; \
@@ -118,10 +175,25 @@ build/all: build/sidecar build/frontend
 		cp $(VENDOR_FFMPEG)/windows-amd64/ffmpeg.exe $(SIDECAR_DIR)/ffmpeg-x86_64-pc-windows-msvc.exe; \
 		cp $(VENDOR_FFMPEG)/windows-amd64/ffprobe.exe $(SIDECAR_DIR)/ffprobe-x86_64-pc-windows-msvc.exe; \
 	fi
+	@if [ -f $(VENDOR_FFMPEG)/linux-amd64/ffmpeg ]; then \
+		cp $(VENDOR_FFMPEG)/linux-amd64/ffmpeg $(SIDECAR_DIR)/ffmpeg-x86_64-unknown-linux-gnu; \
+		cp $(VENDOR_FFMPEG)/linux-amd64/ffprobe $(SIDECAR_DIR)/ffprobe-x86_64-unknown-linux-gnu; \
+		chmod +x $(SIDECAR_DIR)/ffmpeg-x86_64-unknown-linux-gnu $(SIDECAR_DIR)/ffprobe-x86_64-unknown-linux-gnu; \
+	fi
+	@if [ -f $(VENDOR_FFMPEG)/linux-arm64/ffmpeg ]; then \
+		cp $(VENDOR_FFMPEG)/linux-arm64/ffmpeg $(SIDECAR_DIR)/ffmpeg-aarch64-unknown-linux-gnu; \
+		cp $(VENDOR_FFMPEG)/linux-arm64/ffprobe $(SIDECAR_DIR)/ffprobe-aarch64-unknown-linux-gnu; \
+		chmod +x $(SIDECAR_DIR)/ffmpeg-aarch64-unknown-linux-gnu $(SIDECAR_DIR)/ffprobe-aarch64-unknown-linux-gnu; \
+	fi
 	@echo '>>> 打包 macOS arm64...'
 	@npx electron-builder --mac --arm64
+	@for f in release/*.dmg; do [ -f "$$f" ] && ./build/inject-signing-script.sh "$$f"; done
 	@echo '>>> 打包 Windows amd64...'
 	@npx electron-builder --win --x64
+	@echo '>>> 打包 Linux amd64...'
+	@npx electron-builder --linux --x64
+	@echo '>>> 打包 Linux arm64...'
+	@npx electron-builder --linux --arm64
 	@echo '============================================'
 	@echo '>>> 全平台打包完成!'
 	@echo '>>> 产物位于: release/'
