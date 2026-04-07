@@ -234,39 +234,57 @@ export default function ChatWindow({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  // WebView 里 HTML5 DataTransfer.files 没有 path，必须用 Tauri 原生拖放才能拿到绝对路径
+  // Electron 增强了 File 对象，包含 path 属性，可直接从 HTML5 拖放获取绝对路径
+  // 必须在 document 层级阻止默认行为，否则 Electron 会将文件作为 URL 导航
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-
-    void (async () => {
-      try {
-        const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-        const u = await getCurrentWebview().onDragDropEvent((event) => {
-          if (cancelled) return;
-          const p = event.payload;
-          if (p.type === "drop" && p.paths.length > 0) {
-            setAttachments((prev) => [...prev, ...pathsToAttachmentItems(p.paths)]);
-          }
-        });
-        if (cancelled) {
-          u();
-        } else {
-          unlisten = u;
-        }
-      } catch {
-        /* 非 Tauri 环境 */
-      }
-    })();
-
+    const preventNav = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("dragover", preventNav);
+    document.addEventListener("drop", preventNav);
     return () => {
-      cancelled = true;
-      unlisten?.();
+      document.removeEventListener("dragover", preventNav);
+      document.removeEventListener("drop", preventNav);
+    };
+  }, []);
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer?.files || []);
+      const api = window.electronAPI;
+      const paths = files
+        .map((f) => {
+          if (api?.getPathForFile) return api.getPathForFile(f);
+          return (f as File & { path?: string }).path ?? "";
+        })
+        .filter((p) => p.length > 0);
+      if (paths.length > 0) {
+        setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
+      }
+    };
+
+    wrapper.addEventListener("dragover", handleDragOver);
+    wrapper.addEventListener("drop", handleDrop);
+    return () => {
+      wrapper.removeEventListener("dragover", handleDragOver);
+      wrapper.removeEventListener("drop", handleDrop);
     };
   }, []);
 
@@ -290,8 +308,7 @@ export default function ChatWindow({
 
   const handleSelectFile = async () => {
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const result = await open({
+      const paths = await window.electronAPI?.showOpenDialog({
         multiple: true,
         filters: [
           {
@@ -304,11 +321,7 @@ export default function ChatWindow({
           },
         ],
       });
-      if (result) {
-        const items = Array.isArray(result) ? result : [result];
-        const paths = items.map((f: string | { path: string }) =>
-          typeof f === "string" ? f : (f as { path: string }).path
-        );
+      if (paths && paths.length > 0) {
         setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
       }
     } catch (e) {
@@ -322,6 +335,7 @@ export default function ChatWindow({
 
   return (
     <div
+      ref={wrapperRef}
       style={{
         flex: 1,
         display: "flex",
@@ -330,8 +344,8 @@ export default function ChatWindow({
         background: "#fff",
       }}
     >
-      {/* macOS overlay 标题栏拖拽区域 */}
-      <div data-tauri-drag-region style={{ height: 48, flexShrink: 0 }} />
+      {/* macOS 标题栏拖拽区域 */}
+      <div className="app-drag-region" style={{ height: 48, flexShrink: 0 }} />
       <div
         ref={containerRef}
         style={{

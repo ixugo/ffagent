@@ -9,7 +9,7 @@ interface FileLinkProps {
 }
 
 /**
- * 在访达/资源管理器中显示并选中该文件；Tauri 下用 revealItemInDir，失败时再尝试打开父目录
+ * 在访达/资源管理器中显示并选中该文件
  */
 export default function FileLink({ path, variant = "default" }: FileLinkProps) {
   const { t } = useLocale();
@@ -20,19 +20,10 @@ export default function FileLink({ path, variant = "default" }: FileLinkProps) {
     if (!trimmed) return;
 
     try {
-      const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
-      await revealItemInDir(trimmed);
+      await window.electronAPI?.revealInFolder(trimmed);
     } catch (e) {
       console.error("Failed to reveal in folder:", e);
-      try {
-        const { openPath } = await import("@tauri-apps/plugin-opener");
-        const last = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-        const dir = last > 0 ? trimmed.slice(0, last) : trimmed;
-        await openPath(dir || trimmed);
-      } catch (e2) {
-        console.error("Fallback openPath failed:", e2);
-        message.error(t("file.openFolderFailed"));
-      }
+      message.error(t("file.openFolderFailed"));
     }
   };
 

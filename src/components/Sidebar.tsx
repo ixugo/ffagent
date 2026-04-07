@@ -14,30 +14,20 @@ interface SidebarProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onOpenSettings: () => void;
 }
 
 const GITHUB_URL = "https://github.com/ixugo/ffagent/";
 
 async function openGithubRepo() {
   try {
-    const { openUrl } = await import("@tauri-apps/plugin-opener");
-    await openUrl(GITHUB_URL);
+    await window.electronAPI?.openExternal(GITHUB_URL);
   } catch {
     window.open(GITHUB_URL, "_blank", "noopener,noreferrer");
   }
 }
 
-/** 调用 Rust 端 open_settings 命令创建独立系统窗口 */
-async function openSettingsWindow() {
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("open_settings");
-  } catch (e) {
-    console.error("open_settings invoke failed:", e);
-  }
-}
-
-export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete }: SidebarProps) {
+export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete, onOpenSettings }: SidebarProps) {
   const { t } = useLocale();
 
   return (
@@ -50,9 +40,9 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
         background: "#f5f5f5",
       }}
     >
-      {/* macOS overlay 标题栏拖拽区域 + 新建对话按钮 */}
+      {/* macOS 标题栏拖拽区域 + 新建对话按钮 */}
       <div
-        data-tauri-drag-region
+        className="app-drag-region"
         style={{
           height: 48,
           flexShrink: 0,
@@ -161,7 +151,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
           size="small"
           icon={<SettingOutlined style={{ fontSize: 16 }} />}
           aria-label={t("sidebar.settings")}
-          onClick={() => void openSettingsWindow()}
+          onClick={onOpenSettings}
           style={{ color: "#666", fontSize: 13 }}
         >
           {t("sidebar.settings")}

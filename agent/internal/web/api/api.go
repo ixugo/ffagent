@@ -47,7 +47,7 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	api.GET("/app/info", uc.getAppInfo)
 }
 
-// corsMiddleware 允许 Tauri webview 的跨域请求
+// corsMiddleware 允许 Electron renderer 的跨域请求
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")

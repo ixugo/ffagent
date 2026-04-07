@@ -9,10 +9,10 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                        Tauri 桌面应用                                │
+│                       Electron 桌面应用                               │
 │  ┌────────────┐    spawn     ┌──────────────────────────────────┐   │
-│  │ Rust Shell │ ──────────►  │ Go Agent (HTTP :PORT)            │   │
-│  │ (lib.rs)   │   stdout     │                                  │   │
+│  │ Electron   │ ──────────►  │ Go Agent (HTTP :PORT)            │   │
+│  │ (main.ts)  │   stdout     │                                  │   │
 │  │            │ ◄── PORT=N   │  ┌─────────┐  ┌───────────────┐ │   │
 │  └────────────┘              │  │ Gin API  │  │ AI Client     │ │   │
 │        │                     │  │ (SSE)    │  │ (OpenAI 兼容)  │ │   │
@@ -546,7 +546,7 @@ is_intermediate=false           1. os.Stat() 确认文件存在
 | ffmpeg/ffprobe 执行器 | `agent/internal/pkg/ffmpeg/executor.go` |
 | ffprobe 封装 | `agent/internal/pkg/ffmpeg/probe.go` |
 | SSE 推送 + 请求处理 | `agent/internal/web/api/sse.go` |
-| Tauri 启动 Agent | `src-tauri/src/lib.rs` |
+| Electron 启动 Agent | `electron/main.ts` |
 | 前端 SSE 消费 | `src/services/sse.ts` |
 | 聊天页面逻辑 | `src/pages/ChatPage.tsx` |
 | 聊天窗口组件 | `src/components/ChatWindow.tsx` |

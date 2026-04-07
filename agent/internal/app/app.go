@@ -53,7 +53,7 @@ func Run(bc *conf.Bootstrap) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	// Tauri Rust 侧读取此行获取实际端口号
+	// Electron 主进程读取此行获取实际端口号
 	fmt.Printf("PORT=%d\n", port)
 	logDir := filepath.Join(bc.ConfigDir, bc.Log.Dir)
 	slog.Info("服务启动成功", "port", port, "config_dir", bc.ConfigDir, "log_dir", logDir, "cache_root", bc.CacheRoot)

@@ -220,10 +220,10 @@ release/push:
 	@echo "push Successed"
 
 # ==================================================================================== #
-# SIDECAR (Tauri 集成构建)
+# SIDECAR (Electron 集成构建)
 # ==================================================================================== #
 
-SIDECAR_DIR := ../src-tauri/binaries
+SIDECAR_DIR := ../resources/binaries
 
 ## build/sidecar/darwin-arm64: 编译 macOS arm64 sidecar
 .PHONY: build/sidecar/darwin-arm64
@@ -271,7 +271,7 @@ build/sidecar/dev:
 
 VENDOR_FFMPEG := ../vendor/ffmpeg
 
-## build/copy-ffmpeg: 复制 ffmpeg/ffprobe 二进制到 src-tauri/binaries/
+## build/copy-ffmpeg: 复制 ffmpeg/ffprobe 二进制到 resources/binaries/
 .PHONY: build/copy-ffmpeg
 build/copy-ffmpeg:
 	@echo 'Copying ffmpeg binaries...'
@@ -286,10 +286,10 @@ build/copy-ffmpeg:
 	fi
 	@echo '>>> OK'
 
-## build/app: 一键构建：sidecar + ffmpeg + 前端 + Tauri 打包
+## build/app: 一键构建：sidecar + ffmpeg + 前端 + Electron 打包
 .PHONY: build/app
 build/app: build/sidecar build/copy-ffmpeg
-	@echo 'Building Tauri application...'
-	@cd .. && yarn build
-	@cd ../src-tauri && cargo tauri build
+	@echo 'Building Electron application...'
+	@cd .. && npx vite build
+	@cd .. && npx electron-builder
 	@echo '>>> Build complete'

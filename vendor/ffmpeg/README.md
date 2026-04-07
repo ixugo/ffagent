@@ -16,7 +16,7 @@ windows-amd64/
   ffprobe.exe
 ```
 
-执行 `make build/copy-ffmpeg` 将二进制复制到 `src-tauri/binaries/`。
+执行 `make build/copy-ffmpeg` 将二进制复制到 `resources/binaries/`。
 
 > **注意**: CI 构建时会自动下载 FFmpeg，无需提交二进制到仓库。
 > macOS 版本务必使用静态编译版（仅依赖系统库），不要使用 Homebrew 的动态链接版。

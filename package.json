@@ -3,23 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
     "@ant-design/x": "^2.5.0",
     "@ant-design/x-markdown": "^2.5.0",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2.7.0",
-    "@tauri-apps/plugin-fs": "^2.5.0",
-    "@tauri-apps/plugin-http": "^2.5.8",
-    "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-shell": "^2.3.5",
     "antd": "^6.3.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -28,11 +24,14 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vite-plugin-electron": "^0.29.1",
+    "vite-plugin-electron-renderer": "^0.14.6"
   }
 }

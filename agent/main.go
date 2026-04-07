@@ -54,7 +54,7 @@ func main() {
 	if cacheDir := os.Getenv("FFAGENT_CACHE_DIR"); cacheDir != "" {
 		bc.CacheRoot, _ = filepath.Abs(cacheDir)
 	} else {
-		// 与常见「用户缓存目录」一致（如 macOS Library/Caches、Windows AppData Local），无 Tauri 时 CLI 仍可用
+		// 与常见「用户缓存目录」一致（如 macOS Library/Caches、Windows AppData Local），无 Electron 时 CLI 仍可用
 		ud, err := os.UserCacheDir()
 		if err != nil {
 			ud = os.TempDir()

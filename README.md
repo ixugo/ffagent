@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" width="128" alt="FFAgent Logo" />
+</p>
+
 # FFAgent -- AI 驱动的音视频处理桌面应用
 
 FFAgent 是一个 AI 智能体桌面应用，通过自然语言对话完成 FFmpeg 音视频处理操作。拖入文件、描述需求，AI 自动生成并执行 FFmpeg 命令，遇到问题自主重试纠错。
@@ -7,7 +11,7 @@ FFAgent 是一个 AI 智能体桌面应用，通过自然语言对话完成 FFmp
 | 层级 | 技术 | 职责 |
 |------|------|------|
 | **UI** | React 19 + Ant Design X | 聊天界面、设置页面、国际化 |
-| **壳** | Tauri v2 | 桌面应用框架，管理 Go 子进程 |
+| **壳** | Electron | 桌面应用框架，管理 Go 子进程 |
 | **Agent** | Go + go-openai SDK | AI 通信、FFmpeg 命令执行、多轮纠错 |
 | **存储** | SQLite | 会话、消息、配置持久化 |
 
@@ -31,8 +35,9 @@ ffagent/
 │   ├── pages/             # 页面
 │   ├── services/          # API/SSE/i18n 服务
 │   └── locales/           # 语言包
-├── src-tauri/             # Tauri Rust 壳
-│   └── src/lib.rs         # Go 子进程管理 + 菜单
+├── electron/              # Electron 主进程
+│   ├── main.ts            # Go 子进程管理 + 窗口 + 菜单
+│   └── preload.ts         # 安全桥接 IPC
 ├── agent/                 # Go Agent 后端
 │   ├── internal/ai/       # OpenAI SDK 封装
 │   ├── internal/pkg/ffmpeg/ # FFmpeg 执行器
@@ -47,7 +52,6 @@ ffagent/
 
 - Node.js 18+、Yarn
 - Go 1.23+
-- Rust (Tauri v2)
 - ffmpeg 8.0 (开发时可使用系统安装版本)
 
 ### 启动开发
@@ -59,8 +63,8 @@ yarn install
 # 2. 编译 Go Agent（开发版本）
 cd agent && make build/sidecar/dev && cd ..
 
-# 3. 启动 Tauri 开发模式
-cargo tauri dev
+# 3. 启动 Electron 开发模式（或 make dev 一键启动）
+npx vite
 ```
 
 ### 单独启动 Go Agent
@@ -78,7 +82,7 @@ go run . -conf ./configs
   curl http://127.0.0.1:15123/health
   ```
 
-- 桌面模式下日志与 SQLite 位于应用数据目录，例如 macOS：`~/Library/Application Support/com.ffagent.app/configs/`（含 `logs/`、`data.db`）。
+- 桌面模式下日志与 SQLite 位于应用数据目录，例如 macOS：`~/Library/Application Support/ffagent/configs/`（含 `logs/`、`data.db`）。
 
 - 需要更详细的 FFmpeg 调用参数与输出校验日志时，将上述目录内 `config.toml` 中 `[Log]` 的 `Level` 改为 `debug` 后重启应用。
 
@@ -98,11 +102,11 @@ cd agent && make build/sidecar
 # 2. 复制 ffmpeg 二进制
 make build/copy-ffmpeg
 
-# 3. 构建前端
-cd .. && yarn build
+# 3. 构建前端 + Electron
+cd .. && npx vite build
 
-# 4. 打包 Tauri
-cd src-tauri && cargo tauri build
+# 4. 打包 Electron
+npx electron-builder
 ```
 
 ## FFmpeg 二进制

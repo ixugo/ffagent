@@ -34,7 +34,7 @@ func SetupDB(c *conf.Bootstrap) (*gorm.DB, error) {
 }
 
 // getDialector 返回 dial 和 是否 sqlite
-// 使用 configDir 而非 cwd 作为 SQLite 相对路径的基准，避免 Tauri sidecar 工作目录不可写的问题
+// 使用 configDir 而非 cwd 作为 SQLite 相对路径的基准，避免 sidecar 工作目录不可写的问题
 func getDialector(dsn, configDir string) (gorm.Dialector, bool) {
 	if strings.HasPrefix(dsn, "postgres") {
 		return postgres.New(postgres.Config{

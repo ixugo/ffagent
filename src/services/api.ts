@@ -10,28 +10,8 @@ function baseURL(): string {
   return `http://127.0.0.1:${agentPort}`;
 }
 
-// 使用 Tauri HTTP 插件绕过 WebView 网络限制
-async function getTauriFetch(): Promise<typeof globalThis.fetch> {
-  try {
-    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-    return tauriFetch;
-  } catch {
-    return globalThis.fetch;
-  }
-}
-
-let cachedFetch: typeof globalThis.fetch | null = null;
-
-async function getFetch(): Promise<typeof globalThis.fetch> {
-  if (!cachedFetch) {
-    cachedFetch = await getTauriFetch();
-  }
-  return cachedFetch;
-}
-
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const fetchFn = await getFetch();
-  const resp = await fetchFn(`${baseURL()}${path}`, {
+  const resp = await fetch(`${baseURL()}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

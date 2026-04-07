@@ -32,7 +32,6 @@
   "settings.logDir": "日志目录",
   "settings.configDir": "配置与数据库目录",
   "settings.cacheTitle": "处理缓存",
-  "settings.cacheSizeHint": "以下为「系统用户缓存目录/ffagent」下所有文件的合计大小（与 Agent 工作缓存一致）。",
   "settings.cacheRefresh": "刷新占用",
   "settings.cacheSize": "缓存占用",
   "settings.cachePath": "缓存目录",
@@ -43,6 +42,9 @@
   "chat.execCommands": "执行命令",
   "file.openFolder": "打开文件夹",
   "file.openFolderFailed": "无法在资源管理器中打开该位置",
+  "settings.back": "返回",
+  "settings.menuGeneral": "基本设置",
+  "settings.menuModel": "模型设置",
   "lang.zh": "中文",
   "lang.en": "English"
 }

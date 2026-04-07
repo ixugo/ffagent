@@ -32,7 +32,6 @@
   "settings.logDir": "Log directory",
   "settings.configDir": "Config & database directory",
   "settings.cacheTitle": "Processing cache",
-  "settings.cacheSizeHint": "Total size of all files under your system cache directory’s ffagent folder (same as the Agent work cache).",
   "settings.cacheRefresh": "Refresh size",
   "settings.cacheSize": "Cache size",
   "settings.cachePath": "Cache path",
@@ -43,6 +42,9 @@
   "chat.execCommands": "Commands",
   "file.openFolder": "Open in folder",
   "file.openFolderFailed": "Could not reveal this file in the file manager",
+  "settings.back": "Back",
+  "settings.menuGeneral": "General",
+  "settings.menuModel": "Model",
   "lang.zh": "Chinese",
   "lang.en": "English"
 }

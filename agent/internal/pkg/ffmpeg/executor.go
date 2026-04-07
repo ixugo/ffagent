@@ -20,7 +20,7 @@ type Executor struct {
 }
 
 // NewExecutor 创建执行器，binDir 为二进制所在目录（空则使用系统 PATH）
-// Tauri externalBin 会生成带 target 后缀的文件名（如 ffmpeg-aarch64-apple-darwin），需在目录内探测真实路径
+// Electron extraResources 打包后会保留带 target 后缀的文件名（如 ffmpeg-aarch64-apple-darwin），需在目录内探测真实路径
 func NewExecutor(binDir string) *Executor {
 	e := &Executor{
 		ffmpegBin:  resolveBundledBinary(binDir, "ffmpeg"),
@@ -30,7 +30,7 @@ func NewExecutor(binDir string) *Executor {
 	return e
 }
 
-// bundledBinaryCandidates 列出候选路径：因 Tauri 打包后文件名带平台后缀，不能假定固定为 ffmpeg/ffprobe
+// bundledBinaryCandidates 列出候选路径：因打包后文件名带平台后缀，不能假定固定为 ffmpeg/ffprobe
 func bundledBinaryCandidates(binDir, base string) []string {
 	var c []string
 	c = append(c, filepath.Join(binDir, base))

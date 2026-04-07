@@ -20,16 +20,6 @@ export interface SSECallbacks {
   onIncomplete?: () => void;
 }
 
-// 使用 Tauri HTTP plugin fetch 来消费 SSE 流，绕过 WebView 网络限制
-async function getTauriFetch(): Promise<typeof globalThis.fetch> {
-  try {
-    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
-    return tauriFetch;
-  } catch {
-    return globalThis.fetch;
-  }
-}
-
 /** 解析并分发单个 SSE 事件块；返回 true 表示已收到 done 应结束整个流 */
 function dispatchEventBlock(
   eventBlock: string,
@@ -112,9 +102,8 @@ export function startChatSSE(
   (async () => {
     const state = { sawDone: false };
     try {
-      const fetchFn = await getTauriFetch();
       const url = getSSEUrl(sessionId, message, attachments);
-      const response = await fetchFn(url, {
+      const response = await fetch(url, {
         signal: controller.signal,
       });
 
@@ -149,7 +138,6 @@ export function startChatSSE(
         }
       }
 
-      // 连接关闭时尾部可能缺少最后的 \n\n，补上再解析，避免丢失末尾 message/done
       if (!aborted && buffer.trim() !== "") {
         buffer += "\n\n";
         for (const block of buffer.split("\n\n")) {

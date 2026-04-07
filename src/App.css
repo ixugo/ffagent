@@ -4,6 +4,19 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+.app-drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.app-drag-region button,
+.app-drag-region a,
+.app-drag-region input,
+.app-drag-region textarea {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 #root {
   height: 100vh;
   overflow: hidden;

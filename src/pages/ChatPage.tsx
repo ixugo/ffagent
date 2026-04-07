@@ -44,7 +44,11 @@ function newMsgId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-export default function ChatPage() {
+interface ChatPageProps {
+  onOpenSettings: () => void;
+}
+
+export default function ChatPage({ onOpenSettings }: ChatPageProps) {
   const { t } = useLocale();
   const streamingTextRef = useRef("");
   const sseCancelRef = useRef<(() => void) | null>(null);
@@ -410,6 +414,7 @@ export default function ChatPage() {
         onSelect={handleSelectSession}
         onNew={handleNewChat}
         onDelete={handleDeleteSession}
+        onOpenSettings={onOpenSettings}
       />
       <ChatWindow
         messages={messages}
