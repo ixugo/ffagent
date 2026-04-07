@@ -27,6 +27,8 @@
   "settings.language": "Language",
   "settings.save": "Save",
   "settings.saved": "Saved",
+  "settings.saveFailed": "Save failed, please check your input",
+  "settings.validationFailed": "Please fill required fields before saving",
   "sidebar.settings": "Settings",
   "settings.dirsTitle": "Data & logs",
   "settings.logDir": "Log directory",

@@ -23,6 +23,7 @@ help: ## 显示帮助
 ## dev: 开发模式启动
 dev:
 	@echo '>>> 编译 Go Agent (开发版本)...'
+	@rm -rf $(AGENT_DIR)/agent
 	@cd $(AGENT_DIR) && make build/sidecar/dev
 	@echo '>>> 启动 Electron 开发模式...'
 	@npx vite

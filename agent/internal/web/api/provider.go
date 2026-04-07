@@ -7,6 +7,7 @@ import (
 	"github.com/google/wire"
 	"github.com/ixugo/ffagent/agent/internal/ai"
 	"github.com/ixugo/ffagent/agent/internal/conf"
+	"github.com/ixugo/ffagent/agent/internal/core/metadata/metadataapi"
 	"github.com/ixugo/ffagent/agent/internal/pkg/ffmpeg"
 	"github.com/ixugo/goddd/domain/uniqueid"
 	"github.com/ixugo/goddd/domain/uniqueid/store/uniqueiddb"
@@ -22,7 +23,7 @@ var (
 		wire.Struct(new(Usecase), "*"),
 		NewHTTPHandler,
 		versionapi.New,
-		NewConfigCore, NewConfigAPI,
+		metadataapi.NewMetadataCore, metadataapi.NewMetadataAPI,
 		NewUniqueID,
 		NewChatCore, NewChatAPI,
 		NewAIClient, NewFFmpegExecutor,
@@ -47,8 +48,8 @@ type Usecase struct {
 	AIClient   *ai.Client
 	FFmpegExec *ffmpeg.Executor
 
-	ConfigAPI ConfigAPI
-	ChatAPI   ChatAPI
+	MetadataAPI metadataapi.MetadataAPI
+	ChatAPI     ChatAPI
 }
 
 // NewHTTPHandler 生成Gin框架路由内容

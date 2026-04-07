@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ixugo/ffagent/agent/internal/core/metadata/metadataapi"
 	"github.com/ixugo/goddd/domain/version/versionapi"
 	"github.com/ixugo/goddd/pkg/web"
 )
@@ -39,7 +40,7 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	versionapi.Register(r, uc.Version, auth)
 
 	api := r.Group("/api")
-	RegisterConfig(api, uc.ConfigAPI)
+	metadataapi.RegisterMetadata(api, uc.MetadataAPI)
 	RegisterChat(api, uc.ChatAPI)
 	api.GET("/chat/sse", uc.handleChatSSE)
 	api.GET("/cache/stats", uc.getCacheStats)

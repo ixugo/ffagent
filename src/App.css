@@ -17,6 +17,12 @@ body {
   app-region: no-drag;
 }
 
+/* 整块内容区显式 no-drag，避免 Electron 标题栏拖拽行为影响下方表单焦点与输入 */
+.app-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 #root {
   height: 100vh;
   overflow: hidden;

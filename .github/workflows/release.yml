@@ -85,11 +85,19 @@ jobs:
             [ -f "$f" ] && ./build/inject-signing-script.sh "$f"
           done
 
+      - name: Rename artifact
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          cd release
+          for f in *.dmg; do
+            mv "$f" "FFAgent-${VERSION}-darwin-arm64.dmg"
+          done
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FFAgent-macos-arm64
-          path: release/*.dmg
+          name: FFAgent-darwin-arm64
+          path: release/FFAgent-*-darwin-arm64.dmg
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -156,11 +164,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename artifact
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          cd release
+          for f in *.exe; do
+            mv "$f" "FFAgent-${VERSION}-windows-amd64-setup.exe"
+          done
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-windows-amd64
-          path: release/*.exe
+          path: release/FFAgent-*-windows-amd64-setup.exe
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -226,11 +243,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename artifact
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          cd release
+          for f in *.AppImage; do
+            mv "$f" "FFAgent-${VERSION}-linux-amd64.AppImage"
+          done
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-linux-amd64
-          path: release/*.AppImage
+          path: release/FFAgent-*-linux-amd64.AppImage
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -295,11 +320,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename artifact
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          cd release
+          for f in *.AppImage; do
+            mv "$f" "FFAgent-${VERSION}-linux-arm64.AppImage"
+          done
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-linux-arm64
-          path: release/*.AppImage
+          path: release/FFAgent-*-linux-arm64.AppImage
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -325,7 +358,7 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/FFAgent-macos-arm64/*.dmg
+            artifacts/FFAgent-darwin-arm64/*.dmg
             artifacts/FFAgent-windows-amd64/*.exe
             artifacts/FFAgent-linux-amd64/*.AppImage
             artifacts/FFAgent-linux-arm64/*.AppImage

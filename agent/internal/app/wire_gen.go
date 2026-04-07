@@ -7,12 +7,14 @@
 package app
 
 import (
+	"log/slog"
+	"net/http"
+
 	"github.com/ixugo/ffagent/agent/internal/conf"
+	"github.com/ixugo/ffagent/agent/internal/core/metadata/metadataapi"
 	"github.com/ixugo/ffagent/agent/internal/data"
 	"github.com/ixugo/ffagent/agent/internal/web/api"
 	"github.com/ixugo/goddd/domain/version/versionapi"
-	"log/slog"
-	"net/http"
 )
 
 // Injectors from wire.go:
@@ -26,19 +28,19 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	versionapiAPI := versionapi.New(core)
 	client := api.NewAIClient()
 	executor := api.NewFFmpegExecutor(bc)
-	configCore := api.NewConfigCore(db)
-	configAPI := api.NewConfigAPI(configCore)
+	metadataCore := metadataapi.NewMetadataCore(db)
+	metadataAPI := metadataapi.NewMetadataAPI(metadataCore)
 	uniqueidCore := api.NewUniqueID(db)
 	chatCore := api.NewChatCore(db, uniqueidCore)
 	chatAPI := api.NewChatAPI(chatCore)
 	usecase := &api.Usecase{
-		Conf:       bc,
-		DB:         db,
-		Version:    versionapiAPI,
-		AIClient:   client,
-		FFmpegExec: executor,
-		ConfigAPI:  configAPI,
-		ChatAPI:    chatAPI,
+		Conf:        bc,
+		DB:          db,
+		Version:     versionapiAPI,
+		AIClient:    client,
+		FFmpegExec:  executor,
+		MetadataAPI: metadataAPI,
+		ChatAPI:     chatAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
 	return handler, func() {

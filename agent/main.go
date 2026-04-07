@@ -10,11 +10,12 @@ import (
 
 	"github.com/ixugo/ffagent/agent/internal/app"
 	"github.com/ixugo/ffagent/agent/internal/conf"
+	"github.com/ixugo/goddd/domain/version/versionapi"
 	"github.com/ixugo/goddd/pkg/system"
 )
 
 var (
-	buildVersion = "0.0.1" // 构建版本号
+	buildVersion = "0.0.2" // 构建版本号
 	gitBranch    = "dev"   // git 分支
 	gitHash      = "debug" // git 提交点哈希值
 	release      string    // 发布模式 true/false
@@ -22,8 +23,8 @@ var (
 )
 
 var (
-	configDir  = flag.String("conf", "./configs", "config directory, eg: -conf /configs/")
-	ffmpegDir  = flag.String("ffmpeg-dir", "", "ffmpeg/ffprobe binary directory")
+	configDir = flag.String("conf", "./configs", "config directory, eg: -conf /configs/")
+	ffmpegDir = flag.String("ffmpeg-dir", "", "ffmpeg/ffprobe binary directory")
 )
 
 func getBuildRelease() bool {
@@ -62,6 +63,8 @@ func main() {
 		bc.CacheRoot = filepath.Join(ud, "ffagent")
 	}
 	_ = os.MkdirAll(bc.CacheRoot, 0o755)
+	versionapi.DBVersion = "v0.0.1"
+	versionapi.DBRemark = "initial version"
 
 	{
 		expvar.NewString("version").Set(buildVersion)

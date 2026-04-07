@@ -14,6 +14,14 @@ import fs from "node:fs";
 // ESM 下无 __dirname，需要手动构造
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// 与 package.json 是否声明 "type":"module" 有关，vite-plugin-electron 会产出 preload.mjs 或 preload.js，统一探测避免生产包找不到 preload
+function getPreloadScriptPath(): string {
+  const mjs = path.join(__dirname, "preload.mjs");
+  const js = path.join(__dirname, "preload.js");
+  if (fs.existsSync(mjs)) return mjs;
+  return js;
+}
+
 let agentPort = 15123;
 let agentProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -31,6 +39,13 @@ function getBinariesPath(): string {
 
 function getAgentBinaryPath(): string {
   const binDir = getBinariesPath();
+
+  // 开发模式下 make dev 编译到通用名 agent，优先使用以确保始终运行最新代码
+  if (!app.isPackaged) {
+    const dev = path.join(binDir, "agent");
+    if (fs.existsSync(dev)) return dev;
+  }
+
   const platform = process.platform;
   const arch = process.arch;
 
@@ -145,7 +160,7 @@ function createMainWindow(): BrowserWindow {
     titleBarStyle: process.platform === "darwin" ? "hidden" : "default",
     trafficLightPosition: { x: 12, y: 16 },
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: getPreloadScriptPath(),
       contextIsolation: true,
       nodeIntegration: false,
     },

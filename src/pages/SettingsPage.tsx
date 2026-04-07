@@ -14,8 +14,8 @@ import {
   clearAgentCache,
   fetchAppInfo,
   fetchCacheStats,
-  getConfig,
-  saveConfig,
+  getMetadata,
+  saveMetadata,
 } from "../services/api";
 import { useLocale } from "../services/i18n";
 
@@ -90,13 +90,13 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
   const loadConfigs = async () => {
     try {
-      const openaiCfg = await getConfig("openai");
-      if (openaiCfg?.value) {
-        const parsed: OpenAIConfig = JSON.parse(openaiCfg.value);
+      const openaiCfg = await getMetadata("openai");
+      if (openaiCfg?.ext) {
+        const parsed: OpenAIConfig = JSON.parse(openaiCfg.ext);
         form.setFieldsValue({
-          base_url: parsed.base_url,
-          api_key: parsed.api_key,
-          model: parsed.model,
+          base_url: parsed.base_url ?? "",
+          api_key: parsed.api_key ?? "",
+          model: parsed.model ?? "",
         });
       }
     } catch {
@@ -108,9 +108,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     }
 
     try {
-      const appCfg = await getConfig("app");
-      if (appCfg?.value) {
-        const parsed: AppConfig = JSON.parse(appCfg.value);
+      const appCfg = await getMetadata("app");
+      if (appCfg?.ext) {
+        const parsed: AppConfig = JSON.parse(appCfg.ext);
         form.setFieldsValue({ language: parsed.language });
       }
     } catch {
@@ -118,28 +118,48 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     }
   };
 
+  // 各 section 的 Form.Item 在未渲染时会从 form store 注销，validateFields 只返回当前可见字段，
+  // 因此保存时必须限定只写入当前 section 对应的配置，防止把另一组配置覆盖为空
   const handleSave = async () => {
     try {
-      const values = await form.validateFields();
+      const fieldNames: string[] =
+        activeSection === "model"
+          ? ["base_url", "api_key", "model"]
+          : ["language"];
+      const values = await form.validateFields(fieldNames);
       setSaving(true);
 
-      await saveConfig("openai", {
-        base_url: values.base_url,
-        api_key: values.api_key,
-        model: values.model,
-      });
-
-      await saveConfig("app", {
-        language: values.language,
-      });
-
-      if (values.language !== locale) {
-        setLocale(values.language);
+      if (activeSection === "model") {
+        await saveMetadata("openai", {
+          base_url: values.base_url,
+          api_key: values.api_key,
+          model: values.model,
+        });
+      } else {
+        await saveMetadata("app", {
+          language: values.language,
+        });
+        if (values.language !== locale) {
+          setLocale(values.language);
+        }
       }
 
       message.success(t("settings.saved"));
     } catch (e) {
+      // antd 校验失败会 reject 带 errorFields 的对象，与接口错误区分便于排查
+      if (
+        typeof e === "object" &&
+        e !== null &&
+        "errorFields" in e &&
+        Array.isArray((e as { errorFields: unknown }).errorFields)
+      ) {
+        message.warning(t("settings.validationFailed"));
+        return;
+      }
       console.error("Save settings error:", e);
+      message.error(
+        e instanceof Error && e.message ? e.message : t("settings.saveFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -225,6 +245,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         />
 
         <div
+          className="app-no-drag"
           style={{
             flex: 1,
             overflow: "auto",
@@ -252,15 +273,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   {t("settings.save")}
                 </Button>
               </div>
-
-              <Form form={form} layout="vertical">
-                <Form.Item name="language" label={t("settings.language")}>
-                  <Select>
-                    <Select.Option value="zh-CN">{t("lang.zh")}</Select.Option>
-                    <Select.Option value="en-US">{t("lang.en")}</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Form>
 
               <Typography.Title level={5} style={{ marginTop: 32 }}>
                 {t("settings.dirsTitle")}
@@ -328,48 +340,60 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
           {/* ── 模型设置 ── */}
           {activeSection === "model" && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 24,
-                  flexWrap: "wrap",
-                  gap: 8,
-                }}
-              >
-                <Typography.Title level={4} style={{ margin: 0 }}>
-                  {t("settings.menuModel")}
-                </Typography.Title>
-                <Button type="primary" onClick={handleSave} loading={saving}>
-                  {t("settings.save")}
-                </Button>
-              </div>
-
-              <Form form={form} layout="vertical">
-                <Form.Item
-                  name="base_url"
-                  label={t("settings.apiUrl")}
-                  rules={[{ required: true }]}
-                >
-                  <Input placeholder="http://127.0.0.1:1234/v1" />
-                </Form.Item>
-
-                <Form.Item name="api_key" label={t("settings.apiKey")}>
-                  <Input.Password placeholder="sk-..." />
-                </Form.Item>
-
-                <Form.Item
-                  name="model"
-                  label={t("settings.model")}
-                  rules={[{ required: true }]}
-                >
-                  <Input placeholder="gpt-4o" />
-                </Form.Item>
-              </Form>
-            </>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              <Typography.Title level={4} style={{ margin: 0 }}>
+                {t("settings.menuModel")}
+              </Typography.Title>
+              <Button type="primary" onClick={handleSave} loading={saving}>
+                {t("settings.save")}
+              </Button>
+            </div>
           )}
+
+          {/* 单一 Form + hidden：字段始终注册，避免切换菜单后受控 Input 异常；校验按当前分区字段名执行 */}
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="language"
+              label={t("settings.language")}
+              hidden={activeSection !== "general"}
+            >
+              <Select>
+                <Select.Option value="zh-CN">{t("lang.zh")}</Select.Option>
+                <Select.Option value="en-US">{t("lang.en")}</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item
+              name="base_url"
+              label={t("settings.apiUrl")}
+              hidden={activeSection !== "model"}
+              rules={[{ required: true }]}
+            >
+              <Input placeholder="http://127.0.0.1:1234/v1" />
+            </Form.Item>
+            <Form.Item
+              name="api_key"
+              label={t("settings.apiKey")}
+              hidden={activeSection !== "model"}
+            >
+              <Input.Password placeholder="sk-..." />
+            </Form.Item>
+            <Form.Item
+              name="model"
+              label={t("settings.model")}
+              hidden={activeSection !== "model"}
+            >
+              <Input placeholder="gpt-4o" autoComplete="off" />
+            </Form.Item>
+          </Form>
         </div>
       </div>
     </div>

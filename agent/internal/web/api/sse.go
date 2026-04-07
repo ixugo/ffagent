@@ -183,7 +183,6 @@ func (uc *Usecase) handleChatSSE(c *gin.Context) {
 			slog.Error("save assistant message failed", "err", err)
 		}
 	}
-
 }
 
 // loadChatHistory 加载会话历史消息，转换为 OpenAI 消息格式
@@ -239,15 +238,15 @@ func (uc *Usecase) generateAndSaveTitle(sessionID, userMessage string, writer *s
 
 // syncAIConfig 每次 SSE 请求时从数据库加载最新的 openai 配置并刷新 AI Client，确保前端保存后立即生效
 func (uc *Usecase) syncAIConfig(ctx context.Context) {
-	cfg, err := uc.ConfigAPI.configCore.GetConfig(ctx, "openai")
+	m, err := uc.MetadataAPI.GetCore().GetMetadata(ctx, "openai")
 	if err != nil {
 		slog.Debug("load openai config for sync", "err", err)
 		return
 	}
-	if cfg.Value == "" {
+	if m.Ext == "" {
 		return
 	}
-	if err := uc.AIClient.UpdateConfig(cfg.Value); err != nil {
+	if err := uc.AIClient.UpdateConfig(m.Ext); err != nil {
 		slog.Error("sync ai config failed", "err", err)
 	}
 }
