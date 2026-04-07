@@ -34,7 +34,7 @@ tables/
 *.tar
 *.zip
 .idea/
-data/
+/data/
 logs/
 build/
 __debug_bin*
