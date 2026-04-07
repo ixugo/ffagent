@@ -10,7 +10,7 @@
 
 [Data]
   [Data.Database]
-    Dsn = './configs/data.db'
+    Dsn = './data.db'
     MaxIdleConns = 1
     MaxOpenConns = 1
     ConnMaxLifetime = '6h0m0s'

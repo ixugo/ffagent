@@ -19,18 +19,14 @@ var startRuntime = time.Now()
 
 func setupRouter(r *gin.Engine, uc *Usecase) {
 	r.Use(
-		// 格式化输出到控制台，然后记录到日志
-		// 此处不做 recover，底层 http.server 也会 recover，但不会输出方便查看的格式
+		corsMiddleware(),
 		gin.CustomRecovery(func(c *gin.Context, err any) {
 			slog.Error("panic", "err", err, "stack", string(debug.Stack()))
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}),
 		web.Metrics(),
 		web.Logger(),
-		// debug 环境中配合 debug 日志级别，记录请求体与响应体
 		web.LoggerWithBody(web.DefaultBodyLimit, func(_ *gin.Context) bool {
-			// true: 表示忽略记录日志
-			// !debug 表示非调试环境不记录
 			return !uc.Conf.Debug
 		}),
 	)
@@ -41,6 +37,28 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	r.GET("/app/metrics/api", web.WrapH(uc.getMetricsAPI))
 
 	versionapi.Register(r, uc.Version, auth)
+
+	api := r.Group("/api")
+	RegisterConfig(api, uc.ConfigAPI)
+	RegisterChat(api, uc.ChatAPI)
+	api.GET("/chat/sse", uc.handleChatSSE)
+	api.GET("/cache/stats", uc.getCacheStats)
+	api.POST("/cache/clear", uc.postCacheClear)
+	api.GET("/app/info", uc.getAppInfo)
+}
+
+// corsMiddleware 允许 Tauri webview 的跨域请求
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }
 
 type getHealthOutput struct {

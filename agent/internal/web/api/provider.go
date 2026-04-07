@@ -5,10 +5,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
+	"github.com/ixugo/ffagent/agent/internal/ai"
+	"github.com/ixugo/ffagent/agent/internal/conf"
+	"github.com/ixugo/ffagent/agent/internal/pkg/ffmpeg"
 	"github.com/ixugo/goddd/domain/uniqueid"
 	"github.com/ixugo/goddd/domain/uniqueid/store/uniqueiddb"
 	"github.com/ixugo/goddd/domain/version/versionapi"
-	"github.com/ixugo/ffagent/agent/internal/conf"
 	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/web"
 	"gorm.io/gorm"
@@ -20,13 +22,33 @@ var (
 		wire.Struct(new(Usecase), "*"),
 		NewHTTPHandler,
 		versionapi.New,
+		NewConfigCore, NewConfigAPI,
+		NewUniqueID,
+		NewChatCore, NewChatAPI,
+		NewAIClient, NewFFmpegExecutor,
 	)
 )
+
+// NewAIClient 创建 AI 客户端
+func NewAIClient() *ai.Client {
+	return ai.NewClient()
+}
+
+// NewFFmpegExecutor 创建 FFmpeg 执行器
+func NewFFmpegExecutor(bc *conf.Bootstrap) *ffmpeg.Executor {
+	return ffmpeg.NewExecutor(bc.FFmpegBinDir)
+}
 
 type Usecase struct {
 	Conf    *conf.Bootstrap
 	DB      *gorm.DB
 	Version versionapi.API
+
+	AIClient   *ai.Client
+	FFmpegExec *ffmpeg.Executor
+
+	ConfigAPI ConfigAPI
+	ChatAPI   ChatAPI
 }
 
 // NewHTTPHandler 生成Gin框架路由内容

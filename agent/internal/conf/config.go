@@ -7,6 +7,9 @@ type Bootstrap struct {
 	BuildVersion string `toml:"-" json:"-"`
 	ConfigDir    string `toml:"-" json:"-"`
 	ConfigPath   string `toml:"-" json:"-"`
+	FFmpegBinDir string `toml:"-" json:"-"`
+	// CacheRoot ffmpeg 等工作产物的根目录（通常为 …/ffagent），由环境变量或默认路径在启动时写入
+	CacheRoot string `toml:"-" json:"-"`
 
 	Server Server // 服务器
 	Data   Data   // 数据

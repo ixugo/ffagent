@@ -10,7 +10,7 @@ func DefaultConfig() Bootstrap {
 	return Bootstrap{
 		Server: Server{
 			HTTP: ServerHTTP{
-				Port:      8080,
+				Port:      15123,
 				Timeout:   Duration(30 * time.Second),
 				JwtSecret: orm.GenerateRandomString(32),
 				PProf: ServerPPROF{
@@ -21,7 +21,7 @@ func DefaultConfig() Bootstrap {
 		},
 		Data: Data{
 			Database: Database{
-				Dsn:             "./configs/data.db",
+				Dsn:             "./data.db",
 				MaxIdleConns:    10,
 				MaxOpenConns:    50,
 				ConnMaxLifetime: Duration(6 * time.Hour),

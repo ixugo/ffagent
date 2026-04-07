@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ffagent",
+  "productName": "FFAgent",
   "version": "0.1.0",
   "identifier": "com.ffagent.app",
   "build": {
@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "ffagent",
-        "width": 800,
-        "height": 600
+        "title": "FFAgent",
+        "width": 900,
+        "height": 700,
+        "minWidth": 700,
+        "minHeight": 500,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
@@ -24,6 +28,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": [
+      "binaries/agent",
+      "binaries/ffmpeg",
+      "binaries/ffprobe"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

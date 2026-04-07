@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/wire v0.7.0
 	github.com/ixugo/goddd v1.5.6
+	github.com/jinzhu/copier v0.4.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
@@ -29,6 +30,7 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/sashabaranov/go-openai v1.41.2 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b // indirect

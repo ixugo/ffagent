@@ -19,14 +19,19 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
+            protocol: "ws",
+            host,
+            port: 1421,
+          }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", "**/agent/**"],
+    },
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:15123",
+        changeOrigin: true,
+      },
     },
   },
 }));

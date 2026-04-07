@@ -7,10 +7,10 @@
 package app
 
 import (
-	"github.com/ixugo/goddd/domain/version/versionapi"
 	"github.com/ixugo/ffagent/agent/internal/conf"
 	"github.com/ixugo/ffagent/agent/internal/data"
 	"github.com/ixugo/ffagent/agent/internal/web/api"
+	"github.com/ixugo/goddd/domain/version/versionapi"
 	"log/slog"
 	"net/http"
 )
@@ -24,10 +24,21 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	}
 	core := versionapi.NewVersionCore(db)
 	versionapiAPI := versionapi.New(core)
+	client := api.NewAIClient()
+	executor := api.NewFFmpegExecutor(bc)
+	configCore := api.NewConfigCore(db)
+	configAPI := api.NewConfigAPI(configCore)
+	uniqueidCore := api.NewUniqueID(db)
+	chatCore := api.NewChatCore(db, uniqueidCore)
+	chatAPI := api.NewChatAPI(chatCore)
 	usecase := &api.Usecase{
-		Conf:    bc,
-		DB:      db,
-		Version: versionapiAPI,
+		Conf:       bc,
+		DB:         db,
+		Version:    versionapiAPI,
+		AIClient:   client,
+		FFmpegExec: executor,
+		ConfigAPI:  configAPI,
+		ChatAPI:    chatAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
 	return handler, func() {

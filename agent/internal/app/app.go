@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 
 	"github.com/ixugo/ffagent/agent/internal/conf"
@@ -17,18 +17,21 @@ import (
 )
 
 func Run(bc *conf.Bootstrap) {
-	// 以可执行文件所在目录为工作目录，防止以服务方式运行时，工作目录切换到其它位置
-	bin, _ := os.Executable()
-	if err := os.Chdir(filepath.Dir(bin)); err != nil {
-		slog.Error("change work dir fail", "err", err)
+	// 优先使用 ConfigDir 作为工作目录，确保相对路径（日志、数据库）能正确解析
+	workDir := bc.ConfigDir
+	if workDir == "" {
+		bin, _ := os.Executable()
+		workDir = filepath.Dir(bin)
+	}
+	if err := os.Chdir(workDir); err != nil {
+		slog.Error("change work dir fail", "dir", workDir, "err", err)
 	}
 
 	log, clean := SetupLog(bc)
 	defer clean()
 
-	// 检查是否设置了 JWT 密钥，如果未设置，则生成一个长度为 32 的随机字符串作为密钥
 	if bc.Server.HTTP.JwtSecret == "" {
-		bc.Server.HTTP.JwtSecret = orm.GenerateRandomString(32) // 生成一个长度为 32 的随机字符串作为密钥
+		bc.Server.HTTP.JwtSecret = orm.GenerateRandomString(32)
 	}
 
 	handler, cleanUp, err := WireApp(bc, log)
@@ -38,15 +41,22 @@ func Run(bc *conf.Bootstrap) {
 	}
 	defer cleanUp()
 
+	// 预先占用监听端口并交给 http.Server，避免端口探测与实际绑定不一致
+	ln, port := listenLoopbackPort(bc.Server.HTTP.Port)
+
 	svc := server.New(handler,
-		server.Port(strconv.Itoa(bc.Server.HTTP.Port)),
+		server.Listener(ln),
 		server.ReadTimeout(bc.Server.HTTP.Timeout.Duration()),
 		server.WriteTimeout(bc.Server.HTTP.Timeout.Duration()),
 	)
 	go svc.Start()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
-	fmt.Println("服务启动成功 port:", bc.Server.HTTP.Port)
+
+	// Tauri Rust 侧读取此行获取实际端口号
+	fmt.Printf("PORT=%d\n", port)
+	logDir := filepath.Join(bc.ConfigDir, bc.Log.Dir)
+	slog.Info("服务启动成功", "port", port, "config_dir", bc.ConfigDir, "log_dir", logDir, "cache_root", bc.CacheRoot)
 
 	select {
 	case s := <-interrupt:
@@ -60,9 +70,33 @@ func Run(bc *conf.Bootstrap) {
 	}
 }
 
-// SetupLog 初始化日志
+// listenLoopbackPort 在 127.0.0.1 上从 basePort 起尝试绑定，返回已监听的 Listener 与端口
+func listenLoopbackPort(basePort int) (net.Listener, int) {
+	for i := 0; i < 10; i++ {
+		p := basePort + i
+		addr := fmt.Sprintf("127.0.0.1:%d", p)
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			slog.Warn("port occupied, trying next", "port", p, "err", err)
+			continue
+		}
+		return ln, p
+	}
+	slog.Error("all ports occupied, fallback to base port", "base", basePort)
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", basePort))
+	if err != nil {
+		panic(err)
+	}
+	return ln, basePort
+}
+
+// SetupLog 初始化日志，使用 ConfigDir 作为基准确保日志写入正确位置
 func SetupLog(bc *conf.Bootstrap) (*slog.Logger, func()) {
-	logDir := filepath.Join(system.Getwd(), bc.Log.Dir)
+	baseDir := bc.ConfigDir
+	if baseDir == "" {
+		baseDir = system.Getwd()
+	}
+	logDir := filepath.Join(baseDir, bc.Log.Dir)
 	return logger.SetupSlog(logger.Config{
 		Dir:          logDir,                            // 日志地址
 		Debug:        bc.Debug,                          // 服务级别Debug/Release

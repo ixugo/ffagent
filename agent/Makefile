@@ -215,7 +215,81 @@ docker/deploy: build/clean
 PRODUCTION_HOST = remoteHost
 
 ## release/push: 发布产品到服务器，仅上传文件
-# 中小项目可以引入 CI/CD，也可以通过命令快速发布到测试服务器上。
 release/push:
 	@scp build/linux_amd64/bin $(PRODUCTION_HOST):/home/app/$(MODULE_NAME)
 	@echo "push Successed"
+
+# ==================================================================================== #
+# SIDECAR (Tauri 集成构建)
+# ==================================================================================== #
+
+SIDECAR_DIR := ../src-tauri/binaries
+
+## build/sidecar/darwin-arm64: 编译 macOS arm64 sidecar
+.PHONY: build/sidecar/darwin-arm64
+build/sidecar/darwin-arm64:
+	@echo 'Building sidecar for darwin/arm64...'
+	@mkdir -p $(SIDECAR_DIR)
+	@GOOS=darwin GOARCH=arm64 go build \
+		-trimpath \
+		-ldflags="-s -w \
+			-X main.buildVersion=$(VERSION) \
+			-X main.gitBranch=$(BRANCH_NAME) \
+			-X main.gitHash=$(HASH_AND_DATE) \
+			-X main.release=true" \
+		-o=$(SIDECAR_DIR)/agent-aarch64-apple-darwin ./main.go
+	@echo '>>> OK'
+
+## build/sidecar/windows-amd64: 编译 Windows amd64 sidecar
+.PHONY: build/sidecar/windows-amd64
+build/sidecar/windows-amd64:
+	@echo 'Building sidecar for windows/amd64...'
+	@mkdir -p $(SIDECAR_DIR)
+	@GOOS=windows GOARCH=amd64 go build \
+		-trimpath \
+		-ldflags="-s -w \
+			-X main.buildVersion=$(VERSION) \
+			-X main.gitBranch=$(BRANCH_NAME) \
+			-X main.gitHash=$(HASH_AND_DATE) \
+			-X main.release=true" \
+		-o=$(SIDECAR_DIR)/agent-x86_64-pc-windows-msvc.exe ./main.go
+	@echo '>>> OK'
+
+## build/sidecar: 编译所有平台的 sidecar
+.PHONY: build/sidecar
+build/sidecar: build/sidecar/darwin-arm64 build/sidecar/windows-amd64
+
+## build/sidecar/dev: 编译当前平台的 sidecar（开发用）
+.PHONY: build/sidecar/dev
+build/sidecar/dev:
+	@echo 'Building sidecar for current platform...'
+	@mkdir -p $(SIDECAR_DIR)
+	@go build \
+		-ldflags="-X main.buildVersion=$(VERSION)" \
+		-o=$(SIDECAR_DIR)/agent ./main.go
+	@echo '>>> OK'
+
+VENDOR_FFMPEG := ../vendor/ffmpeg
+
+## build/copy-ffmpeg: 复制 ffmpeg/ffprobe 二进制到 src-tauri/binaries/
+.PHONY: build/copy-ffmpeg
+build/copy-ffmpeg:
+	@echo 'Copying ffmpeg binaries...'
+	@mkdir -p $(SIDECAR_DIR)
+	@if [ -f $(VENDOR_FFMPEG)/darwin-arm64/ffmpeg ]; then \
+		cp $(VENDOR_FFMPEG)/darwin-arm64/ffmpeg $(SIDECAR_DIR)/ffmpeg-aarch64-apple-darwin; \
+		cp $(VENDOR_FFMPEG)/darwin-arm64/ffprobe $(SIDECAR_DIR)/ffprobe-aarch64-apple-darwin; \
+	fi
+	@if [ -f $(VENDOR_FFMPEG)/windows-amd64/ffmpeg.exe ]; then \
+		cp $(VENDOR_FFMPEG)/windows-amd64/ffmpeg.exe $(SIDECAR_DIR)/ffmpeg-x86_64-pc-windows-msvc.exe; \
+		cp $(VENDOR_FFMPEG)/windows-amd64/ffprobe.exe $(SIDECAR_DIR)/ffprobe-x86_64-pc-windows-msvc.exe; \
+	fi
+	@echo '>>> OK'
+
+## build/app: 一键构建：sidecar + ffmpeg + 前端 + Tauri 打包
+.PHONY: build/app
+build/app: build/sidecar build/copy-ffmpeg
+	@echo 'Building Tauri application...'
+	@cd .. && yarn build
+	@cd ../src-tauri && cargo tauri build
+	@echo '>>> Build complete'

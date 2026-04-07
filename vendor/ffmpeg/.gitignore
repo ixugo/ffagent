@@ -1,0 +1,4 @@
+darwin-arm64/ffmpeg
+darwin-arm64/ffprobe
+windows-amd64/ffmpeg.exe
+windows-amd64/ffprobe.exe

@@ -1,0 +1,36 @@
+[Server]
+  # 对外提供的服务，建议由 nginx 代理
+  [Server.HTTP]
+    # http 端口
+    Port = 8081
+    # 请求超时时间
+    Timeout = '0s'
+    # jwt 秘钥，空串时，每次启动程序将随机赋值
+    JwtSecret = ''
+
+    [Server.HTTP.PProf]
+      # 是否启用 pprof, 建议设置为 true
+      Enabled = false
+      # 访问白名单
+      AccessIps = []
+
+[Data]
+  # 数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径
+  [Data.Database]
+    Dsn = ''
+    MaxIdleConns = 0
+    MaxOpenConns = 0
+    ConnMaxLifetime = '0s'
+    SlowThreshold = '0s'
+
+[Log]
+  # 日志存储目录，不能使用特殊符号
+  Dir = ''
+  # 记录级别 debug/info/warn/error
+  Level = ''
+  # 保留日志多久，超过时间自动删除
+  MaxAge = '0s'
+  # 多久时间，分割一个新的日志文件
+  RotationTime = '0s'
+  # 多大文件，分割一个新的日志文件(MB)
+  RotationSize = 0

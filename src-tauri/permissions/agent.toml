@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-agent-port"
+description = "允许前端读取内嵌 Go Agent 的 HTTP 监听端口，避免与 eval 注入竞态"
+commands.allow = ["get_agent_port"]
+
+[[permission]]
+identifier = "allow-open-settings"
+description = "允许前端触发打开设置窗口"
+commands.allow = ["open_settings"]

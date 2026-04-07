@@ -21,8 +21,10 @@ var (
 	buildTime    string    // 构建时间戳
 )
 
-// 自定义配置目录
-var configDir = flag.String("conf", "./configs", "config directory, eg: -conf /configs/")
+var (
+	configDir  = flag.String("conf", "./configs", "config directory, eg: -conf /configs/")
+	ffmpegDir  = flag.String("ffmpeg-dir", "", "ffmpeg/ffprobe binary directory")
+)
 
 func getBuildRelease() bool {
 	v, _ := strconv.ParseBool(release)
@@ -45,6 +47,21 @@ func main() {
 	bc.BuildVersion = buildVersion
 	bc.ConfigDir = fileDir
 	bc.ConfigPath = filePath
+	bc.FFmpegBinDir = *ffmpegDir
+	if envDir := os.Getenv("FFMPEG_BIN_DIR"); envDir != "" && bc.FFmpegBinDir == "" {
+		bc.FFmpegBinDir = envDir
+	}
+	if cacheDir := os.Getenv("FFAGENT_CACHE_DIR"); cacheDir != "" {
+		bc.CacheRoot, _ = filepath.Abs(cacheDir)
+	} else {
+		// 与常见「用户缓存目录」一致（如 macOS Library/Caches、Windows AppData Local），无 Tauri 时 CLI 仍可用
+		ud, err := os.UserCacheDir()
+		if err != nil {
+			ud = os.TempDir()
+		}
+		bc.CacheRoot = filepath.Join(ud, "ffagent")
+	}
+	_ = os.MkdirAll(bc.CacheRoot, 0o755)
 
 	{
 		expvar.NewString("version").Set(buildVersion)

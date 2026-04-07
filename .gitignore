@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+src-tauri/binaries/agent
+src-tauri/binaries/agent-*
+src-tauri/binaries/ffmpeg-*
+src-tauri/binaries/ffprobe-*
+src-tauri/binaries/logs/
