@@ -46,7 +46,7 @@ dev:
 	@rm -rf $(AGENT_DIR)/agent
 	@cd $(AGENT_DIR) && make build/sidecar/dev
 	@echo '>>> 启动 Tauri 开发模式...'
-	@npx tauri dev
+	@yarn tauri dev
 
 # ==================================================================================== #
 # Go Sidecar 编译（输出到 src-tauri/binaries/）
@@ -133,7 +133,7 @@ build/sync-version:
 ## build/darwin-arm64: 一键打包 macOS arm64
 build/darwin-arm64: build/sidecar/darwin-arm64 build/copy-ffmpeg/darwin-arm64 build/sync-version
 	@echo '>>> 打包 Tauri (macOS arm64)...'
-	@npx tauri build --target aarch64-apple-darwin
+	@yarn tauri build --target aarch64-apple-darwin
 	@git checkout package.json src-tauri/tauri.conf.json
 	@echo '============================================'
 	@echo '>>> macOS arm64 打包完成! ($(VERSION))'
@@ -147,7 +147,7 @@ build/darwin-arm64: build/sidecar/darwin-arm64 build/copy-ffmpeg/darwin-arm64 bu
 ## build/windows-amd64: 一键打包 Windows amd64
 build/windows-amd64: build/sidecar/windows-amd64 build/copy-ffmpeg/windows-amd64 build/sync-version
 	@echo '>>> 打包 Tauri (Windows amd64)...'
-	@npx tauri build --target x86_64-pc-windows-msvc
+	@yarn tauri build --target x86_64-pc-windows-msvc
 	@git checkout package.json src-tauri/tauri.conf.json
 	@echo '============================================'
 	@echo '>>> Windows amd64 打包完成! ($(VERSION))'
@@ -161,7 +161,7 @@ build/windows-amd64: build/sidecar/windows-amd64 build/copy-ffmpeg/windows-amd64
 ## build/linux-amd64: 一键打包 Linux amd64
 build/linux-amd64: build/sidecar/linux-amd64 build/copy-ffmpeg/linux-amd64 build/sync-version
 	@echo '>>> 打包 Tauri (Linux amd64)...'
-	@npx tauri build --target x86_64-unknown-linux-gnu
+	@yarn tauri build --target x86_64-unknown-linux-gnu
 	@git checkout package.json src-tauri/tauri.conf.json
 	@echo '============================================'
 	@echo '>>> Linux amd64 打包完成! ($(VERSION))'
@@ -175,7 +175,7 @@ build/linux-amd64: build/sidecar/linux-amd64 build/copy-ffmpeg/linux-amd64 build
 ## build/linux-arm64: 一键打包 Linux arm64
 build/linux-arm64: build/sidecar/linux-arm64 build/copy-ffmpeg/linux-arm64 build/sync-version
 	@echo '>>> 打包 Tauri (Linux arm64)...'
-	@npx tauri build --target aarch64-unknown-linux-gnu
+	@yarn tauri build --target aarch64-unknown-linux-gnu
 	@git checkout package.json src-tauri/tauri.conf.json
 	@echo '============================================'
 	@echo '>>> Linux arm64 打包完成! ($(VERSION))'

@@ -50,7 +50,7 @@ jobs:
           sed -i '' "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
 
       - name: Install frontend dependencies
-        run: npm install
+        run: yarn install --frozen-lockfile
 
       - name: Build Go Agent (macOS arm64)
         working-directory: agent
@@ -87,7 +87,7 @@ jobs:
           file src-tauri/binaries/ffprobe-aarch64-apple-darwin
 
       - name: Build Tauri app (macOS arm64)
-        run: npx tauri build --target aarch64-apple-darwin
+        run: yarn tauri build --target aarch64-apple-darwin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -141,7 +141,7 @@ jobs:
           sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
 
       - name: Install frontend dependencies
-        run: npm install
+        run: yarn install --frozen-lockfile
 
       - name: Build Go Agent (Windows amd64)
         working-directory: agent
@@ -178,7 +178,7 @@ jobs:
           file src-tauri/binaries/ffprobe-x86_64-pc-windows-msvc.exe
 
       - name: Build Tauri app (Windows amd64)
-        run: npx tauri build
+        run: yarn tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -237,7 +237,7 @@ jobs:
           sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
 
       - name: Install frontend dependencies
-        run: npm install
+        run: yarn install --frozen-lockfile
 
       - name: Build Go Agent (Linux amd64)
         working-directory: agent
@@ -271,7 +271,7 @@ jobs:
           file src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
 
       - name: Build Tauri app (Linux amd64)
-        run: npx tauri build
+        run: yarn tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -329,7 +329,7 @@ jobs:
           sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
 
       - name: Install frontend dependencies
-        run: npm install
+        run: yarn install --frozen-lockfile
 
       - name: Build Go Agent (Linux arm64)
         working-directory: agent
@@ -363,7 +363,7 @@ jobs:
           file src-tauri/binaries/ffprobe-aarch64-unknown-linux-gnu
 
       - name: Build Tauri app (Linux arm64)
-        run: npx tauri build
+        run: yarn tauri build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
