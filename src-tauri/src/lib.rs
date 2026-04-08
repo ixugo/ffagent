@@ -18,8 +18,8 @@ impl Drop for SidecarGuard {
     }
 }
 
-/// 存储 Go Agent 实际监听端口，供前端通过 invoke 查询
-struct AgentPort(AtomicU16);
+/// 存储 Go Agent 实际监听端口（与 sidecar stdout 解析共享同一 Arc），供前端通过 invoke 查询
+struct AgentPort(Arc<AtomicU16>);
 
 /// 前端通过 invoke("get_agent_port") 获取 Go Agent 端口
 #[tauri::command]
@@ -54,7 +54,7 @@ fn resolve_bin_dir(app: &AppHandle) -> std::path::PathBuf {
         .unwrap_or_default()
 }
 
-/// 启动 Go Agent sidecar，解析 stdout 中的 PORT= 行以获取端口
+/// 启动 Go Agent sidecar，解析 stdout 中的 PORT= 行以获取端口，并通过 event 通知前端
 fn start_agent_sidecar(app: &AppHandle, port_state: Arc<AtomicU16>) {
     let bin_dir = resolve_bin_dir(app);
 
@@ -97,6 +97,7 @@ fn start_agent_sidecar(app: &AppHandle, port_state: Arc<AtomicU16>) {
         }
     };
 
+    let app_handle = app.clone();
     match sidecar.spawn() {
         Ok((mut rx, child)) => {
             app.manage(SidecarGuard(std::sync::Mutex::new(Some(child))));
@@ -115,6 +116,7 @@ fn start_agent_sidecar(app: &AppHandle, port_state: Arc<AtomicU16>) {
                                 if let Ok(p) = port_str.parse::<u16>() {
                                     port_state.store(p, Ordering::SeqCst);
                                     log::info!("Agent 端口已解析: {}", p);
+                                    let _ = app_handle.emit("agent-port-ready", p);
                                 }
                             }
                         }
@@ -150,28 +152,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 已有实例运行时，激活并聚焦主窗口
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
         }))
-        .manage(AgentPort(AtomicU16::new(15123)))
+        .manage(AgentPort(Arc::clone(&port)))
         .invoke_handler(tauri::generate_handler![get_agent_port, open_settings])
         .setup(move |app| {
             let handle = app.handle().clone();
-            let port_clone = Arc::clone(&port);
 
             start_agent_sidecar(&handle, Arc::clone(&port));
-
-            // 延迟同步端口到 managed state，给 Agent 一点启动时间
-            let port_sync = Arc::clone(&port_clone);
-            let handle_sync = handle.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                let p = port_sync.load(Ordering::SeqCst);
-                handle_sync.state::<AgentPort>().0.store(p, Ordering::SeqCst);
-                log::info!("Agent 端口已同步到 state: {}", p);
-            });
 
             // macOS 菜单
             #[cfg(target_os = "macos")]
