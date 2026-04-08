@@ -92,6 +92,7 @@ func (e *Executor) FFmpegVersionLine(ctx context.Context) string {
 	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, e.ffmpegBin, "-version")
+	hideWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		slog.Debug("ffmpeg -version failed", "err", err)
@@ -110,6 +111,7 @@ func (e *Executor) run(ctx context.Context, bin string, args []string) (*RunResu
 	start := time.Now()
 
 	cmd := exec.CommandContext(ctx, bin, args...)
+	hideWindow(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

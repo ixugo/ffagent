@@ -429,8 +429,9 @@ func fixTimestamp(ts string) string {
 	return fmt.Sprintf("%.3f", totalSec)
 }
 
-// normalizeArgs 将模型可能错误合并为单个字符串的参数拆分为独立元素，
-// 同时处理路径中包含空格的情况（被引号包裹的参数不拆分）
+// normalizeArgs 仅处理模型将所有参数合并为单个字符串的错误格式。
+// 判断依据：元素包含空格且首个空格分隔的 token 以 "-" 开头（看起来像 flag），才执行拆分；
+// 否则视为完整路径（如 "C:\Users\foo\My Videos\a.mp4"），原样保留
 func normalizeArgs(args []string) []string {
 	var result []string
 	for _, a := range args {
@@ -438,8 +439,10 @@ func normalizeArgs(args []string) []string {
 			result = append(result, a)
 			continue
 		}
-		parts := splitRespectingQuotes(a)
-		if len(parts) > 1 {
+		firstSpace := strings.IndexByte(a, ' ')
+		firstToken := a[:firstSpace]
+		if strings.HasPrefix(firstToken, "-") {
+			parts := splitRespectingQuotes(a)
 			slog.Debug("normalized merged arg", "from", a, "to", parts)
 			result = append(result, parts...)
 		} else {

@@ -242,19 +242,31 @@ export default function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  // Tauri drag-drop：通过 webview window 的 onDragDropEvent 获取拖入文件的绝对路径
+  // Tauri drag-drop：通过 webview window 的 onDragDropEvent 获取拖入文件的绝对路径。
+  // cancelled 标志确保在 React StrictMode 的双重挂载中正确清理异步注册的监听器
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     const appWindow = getCurrentWebviewWindow();
     appWindow.onDragDropEvent((event) => {
+      if (cancelled) return;
       if (event.payload.type === "drop") {
         const paths = event.payload.paths;
         if (paths.length > 0) {
           setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
         }
       }
-    }).then((fn) => { unlisten = fn; });
-    return () => unlisten?.();
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   const handleSend = useCallback(() => {

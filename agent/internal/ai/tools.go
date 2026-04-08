@@ -33,7 +33,7 @@ func FFmpegTool() openai.Tool {
 					"args": map[string]any{
 						"type":        "array",
 						"items":       map[string]any{"type": "string"},
-						"description": "ffmpeg 命令行参数数组，开头应该包含 -y -hide_banner 参数。每个参数必须是数组中的独立元素！正确: [\"-ss\", \"0\", \"-t\", \"4\", \"-i\", \"input.mp4\", \"-c\", \"copy\", \"output.mp4\"]。错误: [\"-ss 0 -t 4 -i input.mp4 -c copy output.mp4\"]",
+						"description": `ffmpeg 命令行参数数组，开头必须包含 -y -hide_banner 参数。每个参数必须是数组中的独立元素，文件路径不要加引号！正确: ["-i", "C:\Users\test\My Videos\a.mp4", "-c", "copy", "out.mp4"]。错误: ["-i", "\"C:\Users\test\My Videos\a.mp4\""]（路径外层多了引号）。错误: ["-i C:\Users\test\a.mp4 -c copy out.mp4"]（多个参数挤在一个字符串）`,
 					},
 					"is_intermediate": map[string]any{
 						"type":        "boolean",
@@ -59,7 +59,7 @@ func FFprobeTool() openai.Tool {
 					"args": map[string]any{
 						"type":        "array",
 						"items":       map[string]any{"type": "string"},
-						"description": "ffprobe 命令行参数数组, 开头应该包含 -y -hide_banner 参数。每个参数必须是数组中的独立元素！正确: [\"-v\", \"quiet\", \"-print_format\", \"json\", \"-show_format\", \"-show_streams\", \"input.mp4\"]。错误: [\"-v quiet -print_format json -show_format -show_streams input.mp4\"]",
+						"description": `ffprobe 命令行参数数组, 开头必须包含 -y -hide_banner 参数。每个参数必须是数组中的独立元素，文件路径不要加引号！正确: ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "C:\Users\test\My Videos\a.mp4"]。错误: ["-v quiet -print_format json input.mp4"]（多个参数挤在一个字符串）`,
 					},
 				},
 				"required": []string{"args"},
