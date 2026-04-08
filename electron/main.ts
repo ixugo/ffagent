@@ -96,10 +96,15 @@ function startAgent(): Promise<number> {
     const child = spawn(agentBin, ["-conf", configDir, "-ffmpeg-dir", binDir], {
       env: { ...process.env, FFAGENT_CACHE_DIR: ffagentCache },
       cwd: configDir,
-      stdio: ["ignore", "pipe", "inherit"],
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
     });
 
     agentProcess = child;
+
+    child.stderr!.on("data", (chunk: Buffer) => {
+      console.error(`[agent:err] ${chunk.toString().trimEnd()}`);
+    });
 
     let resolved = false;
     let buffer = "";

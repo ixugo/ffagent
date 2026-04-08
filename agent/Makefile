@@ -247,7 +247,7 @@ build/sidecar/windows-amd64:
 	@mkdir -p $(SIDECAR_DIR)
 	@GOOS=windows GOARCH=amd64 go build \
 		-trimpath \
-		-ldflags="-s -w \
+		-ldflags="-s -w -H windowsgui \
 			-X main.buildVersion=$(VERSION) \
 			-X main.gitBranch=$(BRANCH_NAME) \
 			-X main.gitHash=$(HASH_AND_DATE) \
