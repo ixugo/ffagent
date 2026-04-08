@@ -123,6 +123,7 @@ export interface AppInfo {
   config_dir: string;
   log_dir: string;
   cache_root: string;
+  version: string;
 }
 
 export async function fetchAppInfo(): Promise<AppInfo> {

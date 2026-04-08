@@ -151,7 +151,7 @@ jobs:
           mkdir -p ../src-tauri/binaries
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
             -trimpath \
-            -ldflags="-s -w -H windowsgui \
+            -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
               -X main.gitHash=${HASH} \
               -X main.release=true" \

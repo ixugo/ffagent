@@ -54,6 +54,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [cacheClearing, setCacheClearing] = useState(false);
   const [logDir, setLogDir] = useState("");
   const [configDir, setConfigDir] = useState("");
+  const [appVersion, setAppVersion] = useState("");
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("general");
 
@@ -65,9 +66,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         const info = await fetchAppInfo();
         setLogDir(info.log_dir || "");
         setConfigDir(info.config_dir || "");
+        setAppVersion(info.version || "");
       } catch {
         setLogDir("");
         setConfigDir("");
+        setAppVersion("");
       }
     })();
   }, []);
@@ -227,6 +230,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             flex: 1,
           }}
         />
+
+        {appVersion && (
+          <div
+            style={{
+              padding: "12px 16px",
+              flexShrink: 0,
+            }}
+          >
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {t("settings.version")} {appVersion}
+            </Typography.Text>
+          </div>
+        )}
       </div>
 
       {/* 右侧内容区域 */}

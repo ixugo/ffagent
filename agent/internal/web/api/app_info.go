@@ -7,11 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// appInfoOutput 返回 Agent 数据目录、日志目录与缓存根路径，便于在设置页展示与排障
+// appInfoOutput 返回 Agent 数据目录、日志目录、缓存根路径与构建版本号，便于在设置页展示与排障
 type appInfoOutput struct {
 	ConfigDir string `json:"config_dir"`
 	LogDir    string `json:"log_dir"`
 	CacheRoot string `json:"cache_root"`
+	Version   string `json:"version"`
 }
 
 func (uc *Usecase) getAppInfo(c *gin.Context) {
@@ -21,5 +22,6 @@ func (uc *Usecase) getAppInfo(c *gin.Context) {
 		ConfigDir: base,
 		LogDir:    logDir,
 		CacheRoot: uc.Conf.CacheRoot,
+		Version:   uc.Conf.BuildVersion,
 	})
 }
