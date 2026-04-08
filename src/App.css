@@ -17,7 +17,7 @@ body {
   app-region: no-drag;
 }
 
-/* 整块内容区显式 no-drag，避免 Electron 标题栏拖拽行为影响下方表单焦点与输入 */
+/* 整块内容区显式 no-drag，避免标题栏拖拽行为影响下方表单焦点与输入 */
 .app-no-drag {
   -webkit-app-region: no-drag;
   app-region: no-drag;
@@ -45,9 +45,46 @@ body {
   background: #bfbfbf;
 }
 
+/* 加载动画和删除按钮占据同一位置，通过 opacity 切换 */
+.sidebar-session-item .sidebar-loading-indicator,
+.sidebar-session-item .sidebar-delete-btn {
+  transition: opacity 0.15s;
+}
+
+.sidebar-session-item .sidebar-loading-indicator {
+  opacity: 1;
+  display: inline-flex;
+}
+
+/* JS 驱动旋转（requestAnimationFrame），禁用 Ant Design 内置 CSS 动画 */
+.sidebar-session-item .sidebar-loading-indicator .anticon-loading {
+  animation: none !important;
+}
+
+/* 后台任务完成未查看的小黑点 */
+.sidebar-session-item .sidebar-unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
 .sidebar-session-item .sidebar-delete-btn {
   opacity: 0;
-  transition: opacity 0.15s;
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-session-item:hover .sidebar-loading-indicator,
+.sidebar-session-item:hover .sidebar-unread-dot {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-session-item:hover .sidebar-delete-btn {

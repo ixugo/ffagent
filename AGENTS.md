@@ -1,5 +1,5 @@
 ## 技术栈
 
-Electron + React + Go + Typescript + ant design x
+Tauri 2 + React + Go + Typescript + ant design x
 
-React（UI） + Electron（壳） + Go（核心 Agent）
+React（UI） + Tauri（壳） + Go（核心 Agent）

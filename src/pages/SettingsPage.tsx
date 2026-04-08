@@ -196,8 +196,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           flexShrink: 0,
         }}
       >
-        {/* macOS 标题栏拖拽区域（留空给红绿灯按钮） */}
+        {/* 标题栏拖拽区域（留空给红绿灯/窗口控制按钮） */}
         <div
+          data-tauri-drag-region
           className="app-drag-region"
           style={{ height: 48, flexShrink: 0 }}
         />
@@ -238,8 +239,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           background: "#fff",
         }}
       >
-        {/* macOS 标题栏拖拽区域 */}
+        {/* 标题栏拖拽区域 */}
         <div
+          data-tauri-drag-region
           className="app-drag-region"
           style={{ height: 48, flexShrink: 0 }}
         />

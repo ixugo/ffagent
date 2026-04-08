@@ -1,5 +1,6 @@
 import { FolderOpenOutlined } from "@ant-design/icons";
 import { Button, message } from "antd";
+import { revealItemInDir, openPath } from "@tauri-apps/plugin-opener";
 import { useLocale } from "../services/i18n";
 
 interface FileLinkProps {
@@ -20,10 +21,17 @@ export default function FileLink({ path, variant = "default" }: FileLinkProps) {
     if (!trimmed) return;
 
     try {
-      await window.electronAPI?.revealInFolder(trimmed);
+      await revealItemInDir(trimmed);
     } catch (e) {
       console.error("Failed to reveal in folder:", e);
-      message.error(t("file.openFolderFailed"));
+      try {
+        const last = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+        const dir = last > 0 ? trimmed.slice(0, last) : trimmed;
+        await openPath(dir || trimmed);
+      } catch (e2) {
+        console.error("Fallback openPath failed:", e2);
+        message.error(t("file.openFolderFailed"));
+      }
     }
   };
 

@@ -1,29 +1,24 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import electron from "vite-plugin-electron/simple";
+
+const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [
-    react(),
-    electron({
-      main: {
-        entry: "electron/main.ts",
-      },
-      preload: {
-        input: "electron/preload.ts",
-      },
-      renderer: {},
-    }),
-  ],
+  plugins: [react()],
   build: {
-    sourcemap: false,
+    sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    target: ["es2021", "chrome105", "safari15"],
   },
   clearScreen: false,
   server: {
     port: 1420,
     strictPort: true,
+    host: host || false,
+    hmr: host
+      ? { protocol: "ws", host, port: 1421 }
+      : undefined,
     watch: {
-      ignored: ["**/agent/**"],
+      ignored: ["**/agent/**", "**/src-tauri/**"],
     },
     proxy: {
       "/api": {
@@ -32,4 +27,5 @@ export default defineConfig({
       },
     },
   },
+  envPrefix: ["VITE_", "TAURI_ENV_*"],
 });

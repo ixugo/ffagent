@@ -2,36 +2,30 @@
   "name": "ffagent",
   "private": true,
   "version": "0.0.1",
-  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
     "@ant-design/x": "^2.5.0",
     "@ant-design/x-markdown": "^2.5.0",
+    "@tauri-apps/api": "^2.6.0",
+    "@tauri-apps/plugin-dialog": "^2.2.0",
+    "@tauri-apps/plugin-opener": "^2.3.2",
+    "@tauri-apps/plugin-shell": "^2.2.0",
     "antd": "^6.3.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.14.0",
-    "remark-gfm": "^4.0.1"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
-    "electron": "^41.1.1",
-    "electron-builder": "^26.8.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "vite-plugin-electron": "^0.29.1",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite": "^7.0.4"
   }
 }

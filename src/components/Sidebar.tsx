@@ -1,16 +1,21 @@
+import { useEffect, useRef } from "react";
 import {
   DeleteOutlined,
   GithubOutlined,
+  LoadingOutlined,
   PlusOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import { Button, Popconfirm, Typography } from "antd";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Session } from "../services/api";
 import { useLocale } from "../services/i18n";
 
 interface SidebarProps {
   sessions: Session[];
   activeId: string | null;
+  streamingIds: Set<string>;
+  unreadDoneIds: Set<string>;
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
@@ -21,13 +26,71 @@ const GITHUB_URL = "https://github.com/ixugo/ffagent/";
 
 async function openGithubRepo() {
   try {
-    await window.electronAPI?.openExternal(GITHUB_URL);
+    await openUrl(GITHUB_URL);
   } catch {
     window.open(GITHUB_URL, "_blank", "noopener,noreferrer");
   }
 }
 
-export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete, onOpenSettings }: SidebarProps) {
+// --- 全局同步旋转控制器：一个 RAF 驱动所有 spinner ---
+
+const SPIN_DURATION_MS = 1500;
+const spinnerElements = new Set<HTMLSpanElement>();
+let globalRafId: number | null = null;
+
+function spinTick() {
+  const angle = ((performance.now() % SPIN_DURATION_MS) / SPIN_DURATION_MS) * 360;
+  for (const el of spinnerElements) {
+    el.style.transform = `rotate(${angle}deg)`;
+  }
+  globalRafId = requestAnimationFrame(spinTick);
+}
+
+function registerSpinner(el: HTMLSpanElement) {
+  spinnerElements.add(el);
+  if (globalRafId === null) {
+    globalRafId = requestAnimationFrame(spinTick);
+  }
+}
+
+function unregisterSpinner(el: HTMLSpanElement) {
+  spinnerElements.delete(el);
+  if (spinnerElements.size === 0 && globalRafId !== null) {
+    cancelAnimationFrame(globalRafId);
+    globalRafId = null;
+  }
+}
+
+// 全局同步旋转的 spinner 组件：所有实例共享同一 RAF 循环
+function SyncSpinner() {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    registerSpinner(el);
+    return () => unregisterSpinner(el);
+  }, []);
+
+  return (
+    <span ref={ref} style={{ display: "inline-flex" }}>
+      <LoadingOutlined style={{ color: "#1890ff", fontSize: 14 }} />
+    </span>
+  );
+}
+
+// --- Sidebar 组件 ---
+
+export default function Sidebar({
+  sessions,
+  activeId,
+  streamingIds,
+  unreadDoneIds,
+  onSelect,
+  onNew,
+  onDelete,
+  onOpenSettings,
+}: SidebarProps) {
   const { t } = useLocale();
 
   return (
@@ -40,8 +103,9 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
         background: "#f5f5f5",
       }}
     >
-      {/* macOS 标题栏拖拽区域 + 新建对话按钮 */}
+      {/* 标题栏拖拽区域 + 新建对话按钮 */}
       <div
+        data-tauri-drag-region
         className="app-drag-region"
         style={{
           height: 48,
@@ -74,6 +138,8 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
         ) : (
           sessions.map((session) => {
             const isActive = session.id === activeId;
+            const isStreaming = streamingIds.has(session.id);
+            const hasUnreadDone = unreadDoneIds.has(session.id);
             const bgColor = isActive ? "#e6f4ff" : "#f5f5f5";
             return (
               <div
@@ -101,7 +167,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
                   {session.title || t("sidebar.newChat")}
                 </span>
                 <div
-                  className="sidebar-delete-btn"
+                  className="sidebar-action-area"
                   style={{
                     position: "absolute",
                     right: 0,
@@ -114,22 +180,33 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
                     background: `linear-gradient(to right, transparent, ${bgColor} 40%)`,
                   }}
                 >
-                  <Popconfirm
-                    title={t("sidebar.confirmDeleteTitle")}
-                    description={t("sidebar.confirmDeleteDesc")}
-                    okText={t("sidebar.confirmDeleteOk")}
-                    cancelText={t("sidebar.confirmDeleteCancel")}
-                    okButtonProps={{ danger: true }}
-                    onConfirm={(e) => {
-                      e?.stopPropagation();
-                      onDelete(session.id);
-                    }}
-                  >
-                    <DeleteOutlined
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ color: "#999", fontSize: 14 }}
-                    />
-                  </Popconfirm>
+                  {isStreaming && (
+                    <span className="sidebar-loading-indicator">
+                      <SyncSpinner />
+                    </span>
+                  )}
+                  {/* 后台任务完成但未查看：显示小黑点 */}
+                  {hasUnreadDone && !isStreaming && (
+                    <span className="sidebar-unread-dot" />
+                  )}
+                  <span className="sidebar-delete-btn">
+                    <Popconfirm
+                      title={t("sidebar.confirmDeleteTitle")}
+                      description={t("sidebar.confirmDeleteDesc")}
+                      okText={t("sidebar.confirmDeleteOk")}
+                      cancelText={t("sidebar.confirmDeleteCancel")}
+                      okButtonProps={{ danger: true }}
+                      onConfirm={(e) => {
+                        e?.stopPropagation();
+                        onDelete(session.id);
+                      }}
+                    >
+                      <DeleteOutlined
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: "#999", fontSize: 14 }}
+                      />
+                    </Popconfirm>
+                  </span>
                 </div>
               </div>
             );

@@ -10,11 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-dist-electron
 *.local
 
-# Electron builder output
-release
+# Tauri build output
+src-tauri/target
 
 # Editor directories and files
 .vscode/*
@@ -27,9 +26,13 @@ release
 *.sln
 *.sw?
 
-# Sidecar binaries
-resources/binaries/agent
-resources/binaries/agent-*
-resources/binaries/ffmpeg-*
-resources/binaries/ffprobe-*
-resources/binaries/logs/
+# Sidecar binaries (src-tauri/binaries/)
+src-tauri/binaries/agent
+src-tauri/binaries/agent-*
+src-tauri/binaries/ffmpeg-*
+src-tauri/binaries/ffprobe-*
+
+# Legacy (Electron)
+dist-electron
+release
+resources/binaries/

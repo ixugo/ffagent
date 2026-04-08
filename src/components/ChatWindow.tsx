@@ -10,6 +10,8 @@ import {
   CloseCircleFilled,
 } from "@ant-design/icons";
 import { XMarkdown } from "@ant-design/x-markdown";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useLocale } from "../services/i18n";
 import FileLink from "./FileLink";
 import AttachmentBar, { type AttachmentItem } from "./AttachmentBar";
@@ -240,52 +242,19 @@ export default function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
 
-  // Electron 增强了 File 对象，包含 path 属性，可直接从 HTML5 拖放获取绝对路径
-  // 必须在 document 层级阻止默认行为，否则 Electron 会将文件作为 URL 导航
+  // Tauri drag-drop：通过 webview window 的 onDragDropEvent 获取拖入文件的绝对路径
   useEffect(() => {
-    const preventNav = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    document.addEventListener("dragover", preventNav);
-    document.addEventListener("drop", preventNav);
-    return () => {
-      document.removeEventListener("dragover", preventNav);
-      document.removeEventListener("drop", preventNav);
-    };
-  }, []);
-
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!wrapper) return;
-
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const files = Array.from(e.dataTransfer?.files || []);
-      const api = window.electronAPI;
-      const paths = files
-        .map((f) => {
-          if (api?.getPathForFile) return api.getPathForFile(f);
-          return (f as File & { path?: string }).path ?? "";
-        })
-        .filter((p) => p.length > 0);
-      if (paths.length > 0) {
-        setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
+    let unlisten: (() => void) | undefined;
+    const appWindow = getCurrentWebviewWindow();
+    appWindow.onDragDropEvent((event) => {
+      if (event.payload.type === "drop") {
+        const paths = event.payload.paths;
+        if (paths.length > 0) {
+          setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
+        }
       }
-    };
-
-    wrapper.addEventListener("dragover", handleDragOver);
-    wrapper.addEventListener("drop", handleDrop);
-    return () => {
-      wrapper.removeEventListener("dragover", handleDragOver);
-      wrapper.removeEventListener("drop", handleDrop);
-    };
+    }).then((fn) => { unlisten = fn; });
+    return () => unlisten?.();
   }, []);
 
   const handleSend = useCallback(() => {
@@ -308,7 +277,7 @@ export default function ChatWindow({
 
   const handleSelectFile = async () => {
     try {
-      const paths = await window.electronAPI?.showOpenDialog({
+      const result = await openFileDialog({
         multiple: true,
         filters: [
           {
@@ -321,8 +290,13 @@ export default function ChatWindow({
           },
         ],
       });
-      if (paths && paths.length > 0) {
-        setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
+      if (result) {
+        const paths = (Array.isArray(result) ? result : [result]).map(
+          (f) => (typeof f === "string" ? f : f.path),
+        );
+        if (paths.length > 0) {
+          setAttachments((prev) => [...prev, ...pathsToAttachmentItems(paths)]);
+        }
       }
     } catch (e) {
       console.error("File dialog error:", e);
@@ -344,8 +318,8 @@ export default function ChatWindow({
         background: "#fff",
       }}
     >
-      {/* macOS 标题栏拖拽区域 */}
-      <div className="app-drag-region" style={{ height: 48, flexShrink: 0 }} />
+      {/* 标题栏拖拽区域 */}
+      <div data-tauri-drag-region className="app-drag-region" style={{ height: 48, flexShrink: 0 }} />
       <div
         ref={containerRef}
         style={{

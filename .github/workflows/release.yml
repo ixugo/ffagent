@@ -32,72 +32,77 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Sync version from git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          sed -i '' "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          sed -i '' "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
+
       - name: Install frontend dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install
 
       - name: Build Go Agent (macOS arm64)
         working-directory: agent
         run: |
-          VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
-          mkdir -p ../resources/binaries
+          mkdir -p ../src-tauri/binaries
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
             -trimpath \
             -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
               -X main.gitHash=${HASH} \
               -X main.release=true" \
-            -o=../resources/binaries/agent-aarch64-apple-darwin ./main.go
+            -o=../src-tauri/binaries/agent-aarch64-apple-darwin ./main.go
 
       - name: Download FFmpeg (macOS arm64 static)
         run: |
-          mkdir -p resources/binaries
+          mkdir -p src-tauri/binaries
           curl -L -o /tmp/ffmpeg.zip "https://www.osxexperts.net/ffmpeg80arm.zip"
           curl -L -o /tmp/ffprobe.zip "https://www.osxexperts.net/ffprobe80arm.zip"
           unzip -o /tmp/ffmpeg.zip -d /tmp/ffmpeg-dl
           unzip -o /tmp/ffprobe.zip -d /tmp/ffprobe-dl
-          cp /tmp/ffmpeg-dl/ffmpeg resources/binaries/ffmpeg-aarch64-apple-darwin
-          cp /tmp/ffprobe-dl/ffprobe resources/binaries/ffprobe-aarch64-apple-darwin
-          chmod +x resources/binaries/ffmpeg-aarch64-apple-darwin resources/binaries/ffprobe-aarch64-apple-darwin
-          xattr -dr com.apple.quarantine resources/binaries/ffmpeg-aarch64-apple-darwin resources/binaries/ffprobe-aarch64-apple-darwin || true
-          codesign -s - resources/binaries/ffmpeg-aarch64-apple-darwin resources/binaries/ffprobe-aarch64-apple-darwin
+          cp /tmp/ffmpeg-dl/ffmpeg src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+          cp /tmp/ffprobe-dl/ffprobe src-tauri/binaries/ffprobe-aarch64-apple-darwin
+          chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin src-tauri/binaries/ffprobe-aarch64-apple-darwin
+          xattr -dr com.apple.quarantine src-tauri/binaries/ffmpeg-aarch64-apple-darwin src-tauri/binaries/ffprobe-aarch64-apple-darwin || true
+          codesign -s - src-tauri/binaries/ffmpeg-aarch64-apple-darwin src-tauri/binaries/ffprobe-aarch64-apple-darwin
 
       - name: Verify sidecar binaries
         run: |
           echo "=== binaries ==="
-          ls -lh resources/binaries/
-          file resources/binaries/agent-aarch64-apple-darwin
-          file resources/binaries/ffmpeg-aarch64-apple-darwin
-          file resources/binaries/ffprobe-aarch64-apple-darwin
-          resources/binaries/ffmpeg-aarch64-apple-darwin -version 2>&1 | head -1
+          ls -lh src-tauri/binaries/
+          file src-tauri/binaries/agent-aarch64-apple-darwin
+          file src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+          file src-tauri/binaries/ffprobe-aarch64-apple-darwin
 
-      - name: Build frontend + Electron
-        run: npx vite build
-
-      - name: Package Electron app (macOS arm64)
-        run: npx electron-builder --mac --arm64
+      - name: Build Tauri app (macOS arm64)
+        run: npx tauri build --target aarch64-apple-darwin
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Inject signing script into DMG
-        run: |
-          for f in release/*.dmg; do
-            [ -f "$f" ] && ./build/inject-signing-script.sh "$f"
-          done
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rename artifact
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          cd release
+          cd src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
           for f in *.dmg; do
-            mv "$f" "FFAgent-${VERSION}-darwin-arm64.dmg"
+            mv "$f" "FFAgent-v${VERSION}-darwin-arm64.dmg"
           done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-darwin-arm64
-          path: release/FFAgent-*-darwin-arm64.dmg
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/FFAgent-*-darwin-arm64.dmg
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -119,23 +124,38 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Sync version from git tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
+
       - name: Install frontend dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install
 
       - name: Build Go Agent (Windows amd64)
         working-directory: agent
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
-          mkdir -p ../resources/binaries
+          mkdir -p ../src-tauri/binaries
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
             -trimpath \
-            -ldflags="-s -w \
+            -ldflags="-s -w -H windowsgui \
               -X main.buildVersion=${VERSION} \
               -X main.gitHash=${HASH} \
               -X main.release=true" \
-            -o=../resources/binaries/agent-x86_64-pc-windows-msvc.exe ./main.go
+            -o=../src-tauri/binaries/agent-x86_64-pc-windows-msvc.exe ./main.go
 
       - name: Download FFmpeg (Windows amd64)
         shell: pwsh
@@ -144,40 +164,37 @@ jobs:
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "$env:TEMP\ffmpeg.zip"
           Expand-Archive -Path "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg-win" -Force
           $ffDir = Get-ChildItem "$env:TEMP\ffmpeg-win" -Directory | Where-Object { $_.Name -like "ffmpeg-*" } | Select-Object -First 1
-          Copy-Item "$($ffDir.FullName)\bin\ffmpeg.exe" "resources\binaries\ffmpeg-x86_64-pc-windows-msvc.exe"
-          Copy-Item "$($ffDir.FullName)\bin\ffprobe.exe" "resources\binaries\ffprobe-x86_64-pc-windows-msvc.exe"
+          New-Item -ItemType Directory -Force -Path "src-tauri\binaries" | Out-Null
+          Copy-Item "$($ffDir.FullName)\bin\ffmpeg.exe" "src-tauri\binaries\ffmpeg-x86_64-pc-windows-msvc.exe"
+          Copy-Item "$($ffDir.FullName)\bin\ffprobe.exe" "src-tauri\binaries\ffprobe-x86_64-pc-windows-msvc.exe"
 
       - name: Verify sidecar binaries
         shell: bash
         run: |
           echo "=== binaries ==="
-          ls -lh resources/binaries/
-          file resources/binaries/agent-x86_64-pc-windows-msvc.exe
-          file resources/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
-          file resources/binaries/ffprobe-x86_64-pc-windows-msvc.exe
+          ls -lh src-tauri/binaries/
+          file src-tauri/binaries/agent-x86_64-pc-windows-msvc.exe
+          file src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
+          file src-tauri/binaries/ffprobe-x86_64-pc-windows-msvc.exe
 
-      - name: Build frontend + Electron
-        run: npx vite build
-
-      - name: Package Electron app (Windows amd64)
-        run: npx electron-builder --win --x64
+      - name: Build Tauri app (Windows amd64)
+        run: npx tauri build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rename artifact
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          cd release
+          cd src-tauri/target/release/bundle/nsis
           for f in *.exe; do
-            mv "$f" "FFAgent-${VERSION}-windows-amd64-setup.exe"
+            mv "$f" "FFAgent-v${VERSION}-windows-amd64-setup.exe"
           done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-windows-amd64
-          path: release/FFAgent-*-windows-amd64-setup.exe
+          path: src-tauri/target/release/bundle/nsis/FFAgent-*-windows-amd64-setup.exe
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -188,6 +205,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -199,63 +221,72 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Sync version from git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
+
       - name: Install frontend dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install
 
       - name: Build Go Agent (Linux amd64)
         working-directory: agent
         run: |
-          VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
-          mkdir -p ../resources/binaries
+          mkdir -p ../src-tauri/binaries
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
             -trimpath \
             -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
               -X main.gitHash=${HASH} \
               -X main.release=true" \
-            -o=../resources/binaries/agent-x86_64-unknown-linux-gnu ./main.go
+            -o=../src-tauri/binaries/agent-x86_64-unknown-linux-gnu ./main.go
 
       - name: Download FFmpeg (Linux amd64 static)
         run: |
-          mkdir -p resources/binaries
+          mkdir -p src-tauri/binaries
           curl -L -o /tmp/ffmpeg.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
           tar -xf /tmp/ffmpeg.tar.xz -C /tmp
           FF_DIR=$(ls -d /tmp/ffmpeg-master-*-linux64-gpl 2>/dev/null | head -1)
-          cp "${FF_DIR}/bin/ffmpeg" resources/binaries/ffmpeg-x86_64-unknown-linux-gnu
-          cp "${FF_DIR}/bin/ffprobe" resources/binaries/ffprobe-x86_64-unknown-linux-gnu
-          chmod +x resources/binaries/ffmpeg-x86_64-unknown-linux-gnu resources/binaries/ffprobe-x86_64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffmpeg" src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffprobe" src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
 
       - name: Verify sidecar binaries
         run: |
           echo "=== binaries ==="
-          ls -lh resources/binaries/
-          file resources/binaries/agent-x86_64-unknown-linux-gnu
-          file resources/binaries/ffmpeg-x86_64-unknown-linux-gnu
-          file resources/binaries/ffprobe-x86_64-unknown-linux-gnu
-          resources/binaries/ffmpeg-x86_64-unknown-linux-gnu -version 2>&1 | head -1
+          ls -lh src-tauri/binaries/
+          file src-tauri/binaries/agent-x86_64-unknown-linux-gnu
+          file src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu
+          file src-tauri/binaries/ffprobe-x86_64-unknown-linux-gnu
 
-      - name: Build frontend + Electron
-        run: npx vite build
-
-      - name: Package Electron app (Linux amd64)
-        run: npx electron-builder --linux --x64
+      - name: Build Tauri app (Linux amd64)
+        run: npx tauri build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rename artifact
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          cd release
+          cd src-tauri/target/release/bundle/appimage
           for f in *.AppImage; do
-            mv "$f" "FFAgent-${VERSION}-linux-amd64.AppImage"
+            mv "$f" "FFAgent-v${VERSION}-linux-amd64.AppImage"
           done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-linux-amd64
-          path: release/FFAgent-*-linux-amd64.AppImage
+          path: src-tauri/target/release/bundle/appimage/FFAgent-*-linux-amd64.AppImage
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
@@ -266,6 +297,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -277,66 +313,76 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Sync version from git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          sed -i "s/\"version\": *\"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
+
       - name: Install frontend dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install
 
       - name: Build Go Agent (Linux arm64)
         working-directory: agent
         run: |
-          VERSION="${GITHUB_REF_NAME}"
           HASH="$(git log -n1 --pretty=format:'%h-%cd' --date=format:%y%m%d)"
-          mkdir -p ../resources/binaries
+          mkdir -p ../src-tauri/binaries
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
             -trimpath \
             -ldflags="-s -w \
               -X main.buildVersion=${VERSION} \
               -X main.gitHash=${HASH} \
               -X main.release=true" \
-            -o=../resources/binaries/agent-aarch64-unknown-linux-gnu ./main.go
+            -o=../src-tauri/binaries/agent-aarch64-unknown-linux-gnu ./main.go
 
       - name: Download FFmpeg (Linux arm64 static)
         run: |
-          mkdir -p resources/binaries
+          mkdir -p src-tauri/binaries
           curl -L -o /tmp/ffmpeg.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
           tar -xf /tmp/ffmpeg.tar.xz -C /tmp
           FF_DIR=$(ls -d /tmp/ffmpeg-master-*-linuxarm64-gpl 2>/dev/null | head -1)
-          cp "${FF_DIR}/bin/ffmpeg" resources/binaries/ffmpeg-aarch64-unknown-linux-gnu
-          cp "${FF_DIR}/bin/ffprobe" resources/binaries/ffprobe-aarch64-unknown-linux-gnu
-          chmod +x resources/binaries/ffmpeg-aarch64-unknown-linux-gnu resources/binaries/ffprobe-aarch64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffmpeg" src-tauri/binaries/ffmpeg-aarch64-unknown-linux-gnu
+          cp "${FF_DIR}/bin/ffprobe" src-tauri/binaries/ffprobe-aarch64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/ffmpeg-aarch64-unknown-linux-gnu src-tauri/binaries/ffprobe-aarch64-unknown-linux-gnu
 
       - name: Verify sidecar binaries
         run: |
           echo "=== binaries ==="
-          ls -lh resources/binaries/
-          file resources/binaries/agent-aarch64-unknown-linux-gnu
-          file resources/binaries/ffmpeg-aarch64-unknown-linux-gnu
-          file resources/binaries/ffprobe-aarch64-unknown-linux-gnu
+          ls -lh src-tauri/binaries/
+          file src-tauri/binaries/agent-aarch64-unknown-linux-gnu
+          file src-tauri/binaries/ffmpeg-aarch64-unknown-linux-gnu
+          file src-tauri/binaries/ffprobe-aarch64-unknown-linux-gnu
 
-      - name: Build frontend + Electron
-        run: npx vite build
-
-      - name: Package Electron app (Linux arm64)
-        run: npx electron-builder --linux --arm64
+      - name: Build Tauri app (Linux arm64)
+        run: npx tauri build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rename artifact
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          cd release
+          cd src-tauri/target/release/bundle/appimage
           for f in *.AppImage; do
-            mv "$f" "FFAgent-${VERSION}-linux-arm64.AppImage"
+            mv "$f" "FFAgent-v${VERSION}-linux-arm64.AppImage"
           done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: FFAgent-linux-arm64
-          path: release/FFAgent-*-linux-arm64.AppImage
+          path: src-tauri/target/release/bundle/appimage/FFAgent-*-linux-arm64.AppImage
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
-  # 发布 GitHub Release
+  # 发布 GitHub Release（仅一个，等待所有平台构建完成）
   # ─────────────────────────────────────────────────────────────
   publish-release:
     needs: [build-macos-arm64, build-windows-amd64, build-linux-amd64, build-linux-arm64]

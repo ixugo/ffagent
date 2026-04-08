@@ -220,10 +220,10 @@ release/push:
 	@echo "push Successed"
 
 # ==================================================================================== #
-# SIDECAR (Electron 集成构建)
+# SIDECAR (Tauri 集成构建)
 # ==================================================================================== #
 
-SIDECAR_DIR := ../resources/binaries
+SIDECAR_DIR := ../src-tauri/binaries
 
 ## build/sidecar/darwin-arm64: 编译 macOS arm64 sidecar
 .PHONY: build/sidecar/darwin-arm64
@@ -253,6 +253,7 @@ build/sidecar/windows-amd64:
 			-X main.gitHash=$(HASH_AND_DATE) \
 			-X main.release=true" \
 		-o=$(SIDECAR_DIR)/agent-x86_64-pc-windows-msvc.exe ./main.go
+	@upx $(SIDECAR_DIR)/agent-x86_64-pc-windows-msvc.exe
 	@echo '>>> OK'
 
 ## build/sidecar/linux-amd64: 编译 Linux amd64 sidecar
@@ -268,6 +269,7 @@ build/sidecar/linux-amd64:
 			-X main.gitHash=$(HASH_AND_DATE) \
 			-X main.release=true" \
 		-o=$(SIDECAR_DIR)/agent-x86_64-unknown-linux-gnu ./main.go
+	@upx $(SIDECAR_DIR)/agent-x86_64-unknown-linux-gnu
 	@echo '>>> OK'
 
 ## build/sidecar/linux-arm64: 编译 Linux arm64 sidecar
@@ -283,20 +285,27 @@ build/sidecar/linux-arm64:
 			-X main.gitHash=$(HASH_AND_DATE) \
 			-X main.release=true" \
 		-o=$(SIDECAR_DIR)/agent-aarch64-unknown-linux-gnu ./main.go
+	@upx $(SIDECAR_DIR)/agent-aarch64-unknown-linux-gnu
 	@echo '>>> OK'
 
 ## build/sidecar: 编译所有平台的 sidecar
 .PHONY: build/sidecar
 build/sidecar: build/sidecar/darwin-arm64 build/sidecar/windows-amd64 build/sidecar/linux-amd64 build/sidecar/linux-arm64
 
-## build/sidecar/dev: 编译当前平台的 sidecar（开发用）
+## build/sidecar/dev: 编译当前平台的 sidecar（Tauri 开发模式需要带 target triple 后缀）
 .PHONY: build/sidecar/dev
 build/sidecar/dev:
 	@echo 'Building sidecar for current platform...'
 	@mkdir -p $(SIDECAR_DIR)
-	@go build \
+	@AGENT_SUFFIX=$$(rustc -vV 2>/dev/null | awk '/^host:/{print $$2}'); \
+	if [ -z "$$AGENT_SUFFIX" ]; then \
+		echo "警告: 未检测到 rustc，无法确定 target triple，使用默认名称"; \
+		AGENT_SUFFIX="aarch64-apple-darwin"; \
+	fi; \
+	echo "Target triple: $$AGENT_SUFFIX"; \
+	go build \
 		-ldflags="-X main.buildVersion=$(VERSION)" \
-		-o=$(SIDECAR_DIR)/agent ./main.go
+		-o=$(SIDECAR_DIR)/agent-$$AGENT_SUFFIX ./main.go
 	@echo '>>> OK'
 
 VENDOR_FFMPEG := ../vendor/ffmpeg
@@ -316,10 +325,9 @@ build/copy-ffmpeg:
 	fi
 	@echo '>>> OK'
 
-## build/app: 一键构建：sidecar + ffmpeg + 前端 + Electron 打包
+## build/app: 一键构建：sidecar + ffmpeg + 前端 + Tauri 打包
 .PHONY: build/app
 build/app: build/sidecar build/copy-ffmpeg
-	@echo 'Building Electron application...'
-	@cd .. && npx vite build
-	@cd .. && npx electron-builder
+	@echo 'Building Tauri application...'
+	@cd .. && npx tauri build
 	@echo '>>> Build complete'

@@ -3,6 +3,7 @@ import Sidebar from "../components/Sidebar";
 import ChatWindow, { type ChatMessage, type ContentBlock } from "../components/ChatWindow";
 import {
   fetchSessions,
+  fetchMessages,
   createSession,
   deleteSession,
   type Message,
@@ -11,7 +12,6 @@ import {
 import { useLocale } from "../services/i18n";
 import { startChatSSE } from "../services/sse";
 
-/** 将库里的 attachments JSON 解析为路径列表，供历史消息还原展示 */
 function parseAttachmentPaths(raw: string): string[] {
   if (!raw || raw === "null") return [];
   try {
@@ -36,7 +36,6 @@ function messageToChatMessage(m: Message): ChatMessage {
   };
 }
 
-/** 生成列表项稳定且不易碰撞的 id，减轻 StrictMode / 快速连点导致 key 重复与气泡异常 */
 function newMsgId(prefix: string): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -51,7 +50,12 @@ interface ChatPageProps {
 export default function ChatPage({ onOpenSettings }: ChatPageProps) {
   const { t } = useLocale();
   const streamingTextRef = useRef("");
-  const sseCancelRef = useRef<(() => void) | null>(null);
+
+  // 用 Map 管理每个会话的 SSE cancel 函数，允许多个 SSE 同时运行
+  const sseMapRef = useRef<Map<string, () => void>>(new Map());
+  // 用 ref 跟踪当前活跃 session，供 SSE 回调闭包内判断是否应更新 UI
+  const activeIdRef = useRef<string | null>(null);
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingSession, setPendingSession] = useState(false);
@@ -61,6 +65,31 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
   const [statusText, setStatusText] = useState("");
   const [streamingBlocks, setStreamingBlocks] = useState<ContentBlock[]>([]);
   const [streamingThinking, setStreamingThinking] = useState("");
+  // 正在进行 SSE 流的会话 ID 集合，驱动侧边栏加载指示器
+  const [streamingIds, setStreamingIds] = useState<Set<string>>(new Set());
+  // 后台 SSE 完成但用户尚未查看的会话 ID 集合
+  const [unreadDoneIds, setUnreadDoneIds] = useState<Set<string>>(new Set());
+
+  // 同步更新 activeIdRef
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  const addStreamingId = useCallback((id: string) => {
+    setStreamingIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const removeStreamingId = useCallback((id: string) => {
+    setStreamingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -75,10 +104,13 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
     loadSessions();
   }, [loadSessions]);
 
+  // 组件卸载时取消所有活跃 SSE
   useEffect(() => {
     return () => {
-      sseCancelRef.current?.();
-      sseCancelRef.current = null;
+      for (const cancel of sseMapRef.current.values()) {
+        cancel();
+      }
+      sseMapRef.current.clear();
     };
   }, []);
 
@@ -104,30 +136,29 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
       setStreamingBlocks([]);
       setStreamingThinking("");
 
-      // 有序内容块序列：text/exec/file/thinking 按 SSE 事件到达顺序排列
       const blocks: ContentBlock[] = [];
       let currentTextBuf = "";
       let currentThinkingBuf = "";
 
-      // 将当前累积的思考内容刷入 blocks
+      // 判断此 SSE 所属的 session 当前是否是用户正在查看的
+      const isActive = () => activeIdRef.current === sessionId;
+
       const flushThinking = () => {
         if (currentThinkingBuf) {
           blocks.push({ type: "thinking", text: currentThinkingBuf });
           currentThinkingBuf = "";
-          setStreamingThinking("");
+          if (isActive()) setStreamingThinking("");
         }
       };
 
-      // 将当前累积的文本刷入 blocks，确保终端/文件块插在正确位置
       const flushText = () => {
         if (currentTextBuf) {
           blocks.push({ type: "text", text: currentTextBuf });
           currentTextBuf = "";
-          setStreamingText("");
+          if (isActive()) setStreamingText("");
         }
       };
 
-      // 从 blocks 构建完整的纯文本（用于持久化 content 字段）
       const buildFullContent = (): string => {
         return blocks
           .filter((b): b is ContentBlock & { type: "text" } => b.type === "text")
@@ -135,26 +166,29 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
           .join("");
       };
 
-      sseCancelRef.current?.();
+      // 若同一会话已有 SSE 在跑，先取消它
+      sseMapRef.current.get(sessionId)?.();
+      addStreamingId(sessionId);
+
       const cancelSSE = startChatSSE(sessionId, message, attachments, {
         onThinking: (text) => {
           currentThinkingBuf += text;
-          setStreamingThinking(currentThinkingBuf);
+          if (isActive()) setStreamingThinking(currentThinkingBuf);
         },
         onMessage: (text) => {
           flushThinking();
           currentTextBuf += text;
           streamingTextRef.current = currentTextBuf;
-          setStreamingText(currentTextBuf);
+          if (isActive()) setStreamingText(currentTextBuf);
         },
         onStatus: (text) => {
-          setStatusText(text);
+          if (isActive()) setStatusText(text);
         },
         onFile: (path) => {
           flushThinking();
           flushText();
           blocks.push({ type: "file", path });
-          setStreamingBlocks([...blocks]);
+          if (isActive()) setStreamingBlocks([...blocks]);
         },
         onExecStart: ({ id, cmd }) => {
           flushThinking();
@@ -163,7 +197,7 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
             type: "exec",
             exec: { id, cmd, output: "", error: false, running: true },
           });
-          setStreamingBlocks([...blocks]);
+          if (isActive()) setStreamingBlocks([...blocks]);
         },
         onExecDone: ({ id, output, error }) => {
           const idx = blocks.findIndex(
@@ -176,40 +210,83 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
               exec: { ...block.exec, output, error, running: false },
             };
           }
-          setStreamingBlocks([...blocks]);
+          if (isActive()) setStreamingBlocks([...blocks]);
         },
+        // 标题更新始终生效，不受会话切换影响
         onTitle: (title) => {
           setSessions((prev) =>
             prev.map((s) => (s.id === sessionId ? { ...s, title } : s))
           );
         },
         onDone: () => {
-          sseCancelRef.current = null;
-          streamingTextRef.current = "";
-          flushThinking();
-          flushText();
-          if (blocks.length > 0) {
-            const assistantMsg: ChatMessage = {
-              id: newMsgId("assistant"),
-              role: "assistant",
-              content: buildFullContent(),
-              blocks: [...blocks],
-            };
-            setMessages((prev) => [...prev, assistantMsg]);
-          }
-          setStreamingText("");
-          setStreamingThinking("");
-          setStatusText("");
-          setStreamingBlocks([]);
-          setLoading(false);
-        },
-        onError: (err) => {
-          sseCancelRef.current = null;
+          sseMapRef.current.delete(sessionId);
+          removeStreamingId(sessionId);
           streamingTextRef.current = "";
           flushThinking();
           flushText();
 
-          if (blocks.length > 0) {
+          if (isActive()) {
+            if (blocks.length > 0) {
+              const assistantMsg: ChatMessage = {
+                id: newMsgId("assistant"),
+                role: "assistant",
+                content: buildFullContent(),
+                blocks: [...blocks],
+              };
+              setMessages((prev) => [...prev, assistantMsg]);
+            }
+            setStreamingText("");
+            setStreamingThinking("");
+            setStatusText("");
+            setStreamingBlocks([]);
+            setLoading(false);
+          }
+          if (!isActive()) {
+            // 非活跃会话完成：标记为"有未读结果"
+            setUnreadDoneIds((prev) => {
+              const next = new Set(prev);
+              next.add(sessionId);
+              return next;
+            });
+          }
+        },
+        onError: (err) => {
+          sseMapRef.current.delete(sessionId);
+          removeStreamingId(sessionId);
+          streamingTextRef.current = "";
+          flushThinking();
+          flushText();
+
+          if (isActive()) {
+            if (blocks.length > 0) {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: newMsgId("assistant"),
+                  role: "assistant",
+                  content: buildFullContent(),
+                  blocks: [...blocks],
+                },
+              ]);
+            }
+            markUserMessageFailed(userMsgId, err.message);
+            setLoading(false);
+            setStreamingText("");
+            setStreamingThinking("");
+            setStatusText("");
+            setStreamingBlocks([]);
+          }
+        },
+        onIncomplete: () => {
+          sseMapRef.current.delete(sessionId);
+          removeStreamingId(sessionId);
+          streamingTextRef.current = "";
+          flushThinking();
+          flushText();
+
+          if (isActive()) {
+            const note = t("chat.streamIncomplete");
+            blocks.push({ type: "text", text: `\n\n——\n${note}` });
             setMessages((prev) => [
               ...prev,
               {
@@ -219,41 +296,18 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
                 blocks: [...blocks],
               },
             ]);
+            setStreamingText("");
+            setStreamingThinking("");
+            setStatusText("");
+            setStreamingBlocks([]);
+            setLoading(false);
           }
-
-          markUserMessageFailed(userMsgId, err.message);
-          setLoading(false);
-          setStreamingText("");
-          setStreamingThinking("");
-          setStatusText("");
-          setStreamingBlocks([]);
-        },
-        onIncomplete: () => {
-          sseCancelRef.current = null;
-          setLoading(false);
-          setStatusText("");
-          streamingTextRef.current = "";
-          flushThinking();
-          flushText();
-          const note = t("chat.streamIncomplete");
-          blocks.push({ type: "text", text: `\n\n——\n${note}` });
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: newMsgId("assistant"),
-              role: "assistant",
-              content: buildFullContent(),
-              blocks: [...blocks],
-            },
-          ]);
-          setStreamingText("");
-          setStreamingThinking("");
-          setStreamingBlocks([]);
         },
       });
-      sseCancelRef.current = cancelSSE;
+
+      sseMapRef.current.set(sessionId, cancelSSE);
     },
-    [markUserMessageFailed, t]
+    [markUserMessageFailed, addStreamingId, removeStreamingId, t]
   );
 
   const handleSend = useCallback(
@@ -347,9 +401,8 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
     ]
   );
 
+  // 新建对话：不取消其他会话的 SSE，只清空当前 UI 状态
   const handleNewChat = useCallback(() => {
-    sseCancelRef.current?.();
-    sseCancelRef.current = null;
     setLoading(false);
     setActiveId(null);
     setMessages([]);
@@ -360,36 +413,62 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
     setPendingSession(true);
   }, []);
 
+  // 切换会话：不取消后台 SSE，只切换视图
   const handleSelectSession = useCallback(async (id: string) => {
-    sseCancelRef.current?.();
-    sseCancelRef.current = null;
-    setLoading(false);
-    setActiveId(id);
-    setPendingSession(false);
+    // 清空当前会话的 streaming UI
     setStreamingText("");
     setStreamingThinking("");
     setStatusText("");
     setStreamingBlocks([]);
+
+    setActiveId(id);
+    setPendingSession(false);
     setMessages([]);
 
+    // 查看此会话时清除未读标记
+    setUnreadDoneIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+    // 如果目标会话正在流式传输，标记为 loading 状态
+    const isTargetStreaming = sseMapRef.current.has(id);
+    setLoading(isTargetStreaming);
+    if (isTargetStreaming) {
+      setStatusText(t("chat.processing"));
+    }
+
     try {
-      const { fetchMessages } = await import("../services/api");
       const result = await fetchMessages(id);
       const msgs: ChatMessage[] = (result.items || []).map(messageToChatMessage);
       setMessages(msgs);
     } catch (e) {
       console.error("Failed to load messages:", e);
     }
-  }, []);
+  }, [t]);
 
+  // 删除会话：只取消被删除会话的 SSE
   const handleDeleteSession = useCallback(
     async (id: string) => {
       try {
         await deleteSession(id);
+        // 取消该会话的 SSE（如果有）并清除未读标记
+        const cancel = sseMapRef.current.get(id);
+        if (cancel) {
+          cancel();
+          sseMapRef.current.delete(id);
+          removeStreamingId(id);
+        }
+        setUnreadDoneIds((prev) => {
+          if (!prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
         setSessions((prev) => prev.filter((s) => s.id !== id));
         if (activeId === id) {
-          sseCancelRef.current?.();
-          sseCancelRef.current = null;
           setActiveId(null);
           setMessages([]);
           setStreamingText("");
@@ -403,14 +482,16 @@ export default function ChatPage({ onOpenSettings }: ChatPageProps) {
         console.error("Failed to delete session:", e);
       }
     },
-    [activeId]
+    [activeId, removeStreamingId]
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+    <div style={{ display: "flex", width: "100%", height: "100%", overflow: "hidden" }}>
       <Sidebar
         sessions={sessions}
         activeId={activeId}
+        streamingIds={streamingIds}
+        unreadDoneIds={unreadDoneIds}
         onSelect={handleSelectSession}
         onNew={handleNewChat}
         onDelete={handleDeleteSession}
